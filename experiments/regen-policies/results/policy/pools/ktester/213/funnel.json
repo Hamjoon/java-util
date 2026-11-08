@@ -1,0 +1,28 @@
+[
+  {
+    "group": "ktester",
+    "round": "round1",
+    "files": 84,
+    "compiled": 31,
+    "methods": 1077,
+    "stable_runs": 1,
+    "stable_passed": 271,
+    "duplicates": 6,
+    "kept_this_round": 265,
+    "total_kept": 265,
+    "developer_denominator": 1202,
+    "ratio_to_dev": 0.22046589018302828,
+    "per_prompt": {
+      "KTester": {
+        "files": 84,
+        "compiled": 31,
+        "methods": 1077,
+        "stable": 271,
+        "duplicates": 6,
+        "kept": 265
+      }
+    },
+    "dev_unmapped_excluded": 0,
+    "notes": []
+  }
+]

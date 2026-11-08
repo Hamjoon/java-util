@@ -1,0 +1,548 @@
+package com.cedarsoftware.util;
+import com.cedarsoftware.util.ReflectionUtils.MethodCacheKey;
+
+
+import org.junit.Before;
+import org.junit.Test;
+
+import java.io.IOException;
+import java.lang.annotation.*;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Method;
+import java.util.*;
+
+import static org.junit.Assert.*;
+
+/**
+ * JUnit‑4 test suite for {@link ReflectionUtils}.
+ *
+ * The tests cover:
+ * <ul>
+ *   <li>All public API methods – basic functional verification.</li>
+ *   <li>Edge‑case handling (null arguments, illegal arguments, missing members).</li>
+ *   <li>Exception‑wrapping behaviour of {@code call(...)}.</li>
+ *   <li>Caching side‑effects (using fresh caches for each test).</li>
+ *   <li>Annotation lookup across class hierarchies and interfaces.</li>
+ *   <li>Field discovery with default and custom predicates.</li>
+ *   <li>Method selection rules for overloaded methods.</li>
+ *   <li>Byte‑code parsing for class name extraction.</li>
+ * </ul>
+ *
+ * The test class uses only the public API of {@code ReflectionUtils} and
+ * concrete helper classes defined locally – no mocking frameworks are employed.
+ */
+public class ReflectionUtilsTest {
+
+    /* --------------------------------------------------------------------- */
+    /*  Helper annotations & test classes                                    */
+    /* --------------------------------------------------------------------- */
+
+    @Retention(RetentionPolicy.RUNTIME)
+    @Target({ElementType.TYPE, ElementType.METHOD})
+    private @interface ClassAnno {}
+
+    @Retention(RetentionPolicy.RUNTIME)
+    @Target({ElementType.TYPE, ElementType.METHOD})
+    private @interface MethodAnno {}
+
+    @ClassAnno
+    private static class SuperClass {
+        @MethodAnno
+        public String superMethod() { return "super"; }
+
+        private String privateSuperMethod() { return "privateSuper"; }
+
+        static String staticField = "static";
+        private String instanceField = "instance";
+    }
+
+    @ClassAnno
+    private interface AnnotatedInterface {}
+
+    private static class SubClass extends SuperClass implements AnnotatedInterface {
+        @MethodAnno
+        public String subMethod() { return "sub"; }
+
+        // Overloaded method – used for getMethod(Object, String, int)
+        public String overloaded(String a) { return "one:" + a; }
+        public String overloaded(String a, Integer b) { return "two:" + a + b; }
+
+        // Same‑named private field as in SuperClass to test map key collision
+        private String instanceField = "subInstance";
+    }
+
+    private static class NoDefaultCtor {
+        private NoDefaultCtor() {}
+        public NoDefaultCtor(String s) {}
+    }
+
+    /* --------------------------------------------------------------------- */
+    /*  Reset caches before each test to avoid cross‑test interference       */
+    /* --------------------------------------------------------------------- */
+    @Before
+    public void setUpCaches() {
+        // Use simple thread‑safe maps; they fulfil the contract required by the setters.
+        ReflectionUtils.setMethodCache(new LinkedHashMap<>());
+        ReflectionUtils.setClassFieldsCache(new LinkedHashMap<>());
+        ReflectionUtils.setFieldCache(new LinkedHashMap<>());
+        ReflectionUtils.setClassAnnotationCache(new LinkedHashMap<>());
+        ReflectionUtils.setMethodAnnotationCache(new LinkedHashMap<>());
+        ReflectionUtils.setConstructorCache(new LinkedHashMap<>());
+    }
+
+    /* --------------------------------------------------------------------- */
+    /*  1.  Cache setters – basic smoke test                                 */
+    /* --------------------------------------------------------------------- */
+    @Test
+    public void testCacheSettersReplaceCaches() {
+        Map<Object, Method> methodMap = new LinkedHashMap<>();
+        ReflectionUtils.setMethodCache(methodMap);
+        // internal cache is private – we verify indirectly by calling a method that uses it.
+        Method m = ReflectionUtils.getMethod(String.class, "length");
+        assertNotNull(m);
+        // The cache should now contain the key; a second call must hit the same map instance.
+        Method cached = ReflectionUtils.getMethod(String.class, "length");
+        assertSame(m, cached);
+    }
+
+    /* --------------------------------------------------------------------- */
+    /*  2.  Class annotation lookup                                          */
+    /* --------------------------------------------------------------------- */
+    @Test
+    public void testGetClassAnnotationDirect() {
+        ClassAnno anno = ReflectionUtils.getClassAnnotation(SuperClass.class, ClassAnno.class);
+        assertNotNull(anno);
+    }
+
+    @Test
+    public void testGetClassAnnotationInherited() {
+        // SubClass inherits @ClassAnno from SuperClass
+        ClassAnno anno = ReflectionUtils.getClassAnnotation(SubClass.class, ClassAnno.class);
+        assertNotNull(anno);
+    }
+
+    @Test
+    public void testGetClassAnnotationFromInterface() {
+        ClassAnno anno = ReflectionUtils.getClassAnnotation(AnnotatedInterface.class, ClassAnno.class);
+        assertNotNull(anno);
+    }
+
+    @Test
+    public void testGetClassAnnotationMissing() {
+        ClassAnno anno = ReflectionUtils.getClassAnnotation(String.class, ClassAnno.class);
+        assertNull(anno);
+    }
+
+    @Test
+    public void testGetClassAnnotationNullArguments() {
+        // classToCheck null → returns null per implementation
+        assertNull(ReflectionUtils.getClassAnnotation(null, ClassAnno.class));
+
+        // annoClass null → IllegalArgumentException via Convention.throwIfNull
+        try {
+            ReflectionUtils.getClassAnnotation(String.class, null);
+            fail("Expected IllegalArgumentException for null annoClass");
+        } catch (IllegalArgumentException ignored) {}
+    }
+
+    /* --------------------------------------------------------------------- */
+    /*  3.  Method annotation lookup                                          */
+    /* --------------------------------------------------------------------- */
+    @Test
+    public void testGetMethodAnnotationDirect() throws Exception {
+        Method m = SuperClass.class.getMethod("superMethod");
+        MethodAnno anno = ReflectionUtils.getMethodAnnotation(m, MethodAnno.class);
+        assertNotNull(anno);
+    }
+
+    @Test
+    public void testGetMethodAnnotationInherited() throws Exception {
+        Method m = SubClass.class.getMethod("superMethod");
+        MethodAnno anno = ReflectionUtils.getMethodAnnotation(m, MethodAnno.class);
+        assertNotNull(anno);
+    }
+
+    @Test
+    public void testGetMethodAnnotationMissing() throws Exception {
+        Method m = String.class.getMethod("length");
+        MethodAnno anno = ReflectionUtils.getMethodAnnotation(m, MethodAnno.class);
+        assertNull(anno);
+    }
+
+    @Test
+    public void testGetMethodAnnotationNullArguments() {
+        try {
+            ReflectionUtils.getMethodAnnotation(null, MethodAnno.class);
+            fail("Expected IllegalArgumentException for null method");
+        } catch (IllegalArgumentException ignored) {}
+
+        try {
+            Method m = String.class.getMethod("length");
+            ReflectionUtils.getMethodAnnotation(m, null);
+            fail("Expected IllegalArgumentException for null annoClass");
+        } catch (IllegalArgumentException ignored) {}
+    }
+
+    /* --------------------------------------------------------------------- */
+    /*  4.  Field retrieval                                                   */
+    /* --------------------------------------------------------------------- */
+    @Test
+    public void testGetFieldFound() {
+        Field f = ReflectionUtils.getField(SubClass.class, "instanceField");
+        assertNotNull(f);
+        assertEquals("instanceField", f.getName());
+        // field should be accessible even though it is private
+        assertTrue(f.isAccessible() || !Modifier.isPublic(f.getModifiers()));
+    }
+
+    @Test
+    public void testGetFieldStaticIgnored() {
+        // static field should be found because getField does not filter static,
+        // it only filters by name.
+        Field f = ReflectionUtils.getField(SuperClass.class, "staticField");
+        assertNotNull(f);
+        assertTrue(Modifier.isStatic(f.getModifiers()));
+    }
+
+    @Test
+    public void testGetFieldMissing() {
+        assertNull(ReflectionUtils.getField(SubClass.class, "nonExistent"));
+    }
+
+    @Test
+    public void testGetFieldNullArguments() {
+        try {
+            ReflectionUtils.getField(null, "any");
+            fail("Expected IllegalArgumentException for null class");
+        } catch (IllegalArgumentException ignored) {}
+
+        try {
+            ReflectionUtils.getField(String.class, null);
+            fail("Expected IllegalArgumentException for null fieldName");
+        } catch (IllegalArgumentException ignored) {}
+    }
+
+    /* --------------------------------------------------------------------- */
+    /*  5.  Declared fields (custom predicate)                              */
+    /* --------------------------------------------------------------------- */
+    @Test
+    public void testGetDeclaredFieldsCustomPredicate() {
+        // Only static fields
+        List<Field> staticFields = ReflectionUtils.getDeclaredFields(SuperClass.class,
+                f -> Modifier.isStatic(f.getModifiers()));
+        assertEquals(1, staticFields.size());
+        assertEquals("staticField", staticFields.get(0).getName());
+    }
+
+    @Test
+    public void testGetDeclaredFieldsDefaultFilter() {
+        List<Field> fields = ReflectionUtils.getDeclaredFields(SubClass.class);
+        // Should exclude static, enum internal, groovy metaClass, etc.
+        // In our test class we only have private fields.
+        assertTrue(fields.stream().anyMatch(f -> f.getName().equals("instanceField")));
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testGetDeclaredFieldsNullClass() {
+        ReflectionUtils.getDeclaredFields(null, f -> true);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testGetDeclaredFieldsNullPredicate() {
+        ReflectionUtils.getDeclaredFields(String.class, null);
+    }
+
+    /* --------------------------------------------------------------------- */
+    /*  6.  All declared fields (hierarchy)                                   */
+    /* --------------------------------------------------------------------- */
+    @Test
+    public void testGetAllDeclaredFieldsIncludesSuper() {
+        List<Field> all = ReflectionUtils.getAllDeclaredFields(SubClass.class);
+        // Should contain both SubClass.instanceField and SuperClass.instanceField
+        Set<String> names = new HashSet<>();
+        for (Field f : all) names.add(f.getName());
+        assertTrue(names.contains("instanceField")); // both fields have same name – both present
+        assertEquals(2, all.size());
+    }
+
+    @Test
+    public void testGetAllDeclaredFieldsCustomPredicate() {
+        // Only public fields – none in our hierarchy
+        List<Field> publicFields = ReflectionUtils.getAllDeclaredFields(SubClass.class,
+                f -> Modifier.isPublic(f.getModifiers()));
+        assertTrue(publicFields.isEmpty());
+    }
+
+    /* --------------------------------------------------------------------- */
+    /*  7.  getAllDeclaredFieldsMap – collision handling                     */
+    /* --------------------------------------------------------------------- */
+    @Test
+    public void testGetAllDeclaredFieldsMapCollision() {
+        Map<String, Field> map = ReflectionUtils.getAllDeclaredFieldsMap(SubClass.class);
+        // Child field should be stored under simple name, parent under qualified name
+        assertTrue(map.containsKey("instanceField"));
+        assertTrue(map.containsKey(SuperClass.class.getName() + ".instanceField"));
+        assertEquals(SubClass.class, map.get("instanceField").getDeclaringClass());
+        assertEquals(SuperClass.class, map.get(SuperClass.class.getName() + ".instanceField").getDeclaringClass());
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testGetAllDeclaredFieldsMapNullClass() {
+        ReflectionUtils.getAllDeclaredFieldsMap(null);
+    }
+
+    /* --------------------------------------------------------------------- */
+    /*  8.  call(Object, Method, ...) – normal & exceptional paths         */
+    /* --------------------------------------------------------------------- */
+    @Test
+    public void testCallWithMethodSuccess() throws Exception {
+        Method m = String.class.getMethod("substring", int.class);
+        Object result = ReflectionUtils.call("hello", m, 2);
+        assertEquals("llo", result);
+    }
+
+    @Test
+    public void testCallWithMethodNullMethod() {
+        try {
+            ReflectionUtils.call("test", null);
+            fail("Expected IllegalArgumentException for null method");
+        } catch (IllegalArgumentException ignored) {}
+    }
+
+    @Test
+    public void testCallWithMethodNullInstance() throws Exception {
+        Method m = String.class.getMethod("length");
+        try {
+            ReflectionUtils.call(null, m);
+            fail("Expected IllegalArgumentException for null instance");
+        } catch (IllegalArgumentException ignored) {}
+    }
+
+    @Test
+    public void testCallMethodThrowsCheckedExceptionWrapped() throws Exception {
+        Method m = SubClass.class.getMethod("subMethod");
+        // subMethod does not throw – we create a method that throws via reflection on a custom class
+        class Thrower {
+            public void boom() throws IOException { throw new IOException("boom"); }
+        }
+        Method boom = Thrower.class.getMethod("boom");
+        try {
+            ReflectionUtils.call(new Thrower(), boom);
+            fail("Expected RuntimeException wrapping IOException");
+        } catch (RuntimeException e) {
+            assertTrue(e.getCause() instanceof IOException);
+            assertEquals("boom", e.getCause().getMessage());
+        }
+    }
+
+    /* --------------------------------------------------------------------- */
+    /*  9.  call(Object, String, ...) – method lookup & errors               */
+    /* --------------------------------------------------------------------- */
+    @Test
+    public void testCallByNameSuccess() {
+        Object result = ReflectionUtils.call("hello", "substring", 1, 3);
+        assertEquals("el", result);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testCallByNameMethodNotFound() {
+        ReflectionUtils.call("hello", "nonExistentMethod");
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testCallByNameNullInstance() {
+        ReflectionUtils.call(null, "toString");
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testCallByNameNullMethodName() {
+        ReflectionUtils.call("test", null);
+    }
+
+    /* --------------------------------------------------------------------- */
+    /* 10. getMethod(Class, name, types) – visibility & caching               */
+    /* --------------------------------------------------------------------- */
+    @Test
+    public void testGetMethodPublic() {
+        Method m = ReflectionUtils.getMethod(String.class, "length");
+        assertNotNull(m);
+        assertEquals("length", m.getName());
+    }
+
+    @Test
+    public void testGetMethodPrivate() throws Exception {
+        Method m = ReflectionUtils.getMethod(SubClass.class, "privateSuperMethod");
+        assertNotNull(m);
+        assertTrue(m.isAccessible() || !Modifier.isPublic(m.getModifiers()));
+        // invoke to ensure it works
+        Object result = m.invoke(new SubClass());
+        assertEquals("privateSuper", result);
+    }
+
+    @Test
+    public void testGetMethodNotFoundReturnsNull() {
+        Method m = ReflectionUtils.getMethod(String.class, "doesNotExist");
+        assertNull(m);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testGetMethodNullClass() {
+        ReflectionUtils.getMethod(null, "any");
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testGetMethodNullName() {
+        ReflectionUtils.getMethod(String.class, null);
+    }
+
+    /* --------------------------------------------------------------------- */
+    /* 11. getMethod(Object, name, argCount) – overload resolution           */
+    /* --------------------------------------------------------------------- */
+    @Test
+    public void testGetMethodByArgCountExactMatch() {
+        Method m = ReflectionUtils.getMethod(new SubClass(), "overloaded", 2);
+        assertNotNull(m);
+        assertEquals(2, m.getParameterCount());
+    }
+
+    @Test
+    public void testGetMethodByArgCountPrefersNonSynthetic() {
+        // The selected method should be the one with 1 argument (since both exist)
+        Method m = ReflectionUtils.getMethod(new SubClass(), "overloaded", 1);
+        assertNotNull(m);
+        assertEquals(1, m.getParameterCount());
+        assertEquals("overloaded", m.getName());
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testGetMethodByArgCountNotFound() {
+        ReflectionUtils.getMethod(new SubClass(), "nonexistent", 0);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testGetMethodByArgCountNegative() {
+        ReflectionUtils.getMethod(new SubClass(), "overloaded", -1);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testGetMethodByArgCountNullInstance() {
+        ReflectionUtils.getMethod(null, "any", 0);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testGetMethodByArgCountNullName() {
+        ReflectionUtils.getMethod(new SubClass(), null, 0);
+    }
+
+    /* --------------------------------------------------------------------- */
+    /* 12. getConstructor & getAllConstructors                               */
+    /* --------------------------------------------------------------------- */
+    @Test
+    public void testGetConstructorPublic() {
+        Constructor<?> ctor = ReflectionUtils.getConstructor(String.class);
+        assertNotNull(ctor);
+        assertEquals(0, ctor.getParameterTypes().length);
+    }
+
+    @Test
+    public void testGetConstructorPrivate() {
+        Constructor<?> ctor = ReflectionUtils.getConstructor(NoDefaultCtor.class, String.class);
+        assertNotNull(ctor);
+        // Should be accessible (made accessible internally)
+        assertTrue(ctor.isAccessible() || !Modifier.isPublic(ctor.getModifiers()));
+    }
+
+    @Test
+    public void testGetConstructorMissing() {
+        Constructor<?> ctor = ReflectionUtils.getConstructor(String.class, int.class);
+        assertNull(ctor);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testGetConstructorNullClass() {
+        ReflectionUtils.getConstructor(null);
+    }
+
+    @Test
+    public void testGetAllConstructors() {
+        Constructor<?>[] ctors = ReflectionUtils.getAllConstructors(SubClass.class);
+        // SubClass inherits default constructor from Object + its own implicit default
+        assertTrue(ctors.length >= 1);
+        // Ensure each returned constructor is cached (by calling again and checking reference equality)
+        Constructor<?>[] ctors2 = ReflectionUtils.getAllConstructors(SubClass.class);
+        assertArrayEquals(ctors, ctors2);
+    }
+
+    /* --------------------------------------------------------------------- */
+    /* 13. getNonOverloadedMethod – simple getter & error cases               */
+    /* --------------------------------------------------------------------- */
+    @Test
+    public void testGetNonOverloadedMethodSuccess() {
+        Method m = ReflectionUtils.getNonOverloadedMethod(String.class, "trim");
+        assertNotNull(m);
+        assertEquals(0, m.getParameterCount());
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testGetNonOverloadedMethodOverloaded() {
+        // String has overloaded "valueOf" methods
+        ReflectionUtils.getNonOverloadedMethod(String.class, "valueOf");
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testGetNonOverloadedMethodMissing() {
+        ReflectionUtils.getNonOverloadedMethod(String.class, "doesNotExist");
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testGetNonOverloadedMethodNullClass() {
+        ReflectionUtils.getNonOverloadedMethod(null, "any");
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testGetNonOverloadedMethodBlankName() {
+        ReflectionUtils.getNonOverloadedMethod(String.class, "   ");
+    }
+
+    /* --------------------------------------------------------------------- */
+    /* 14. getClassName – null handling                                      */
+    /* --------------------------------------------------------------------- */
+    @Test
+    public void testGetClassName() {
+        assertEquals("java.lang.String", ReflectionUtils.getClassName("test"));
+        assertEquals("null", ReflectionUtils.getClassName(null));
+    }
+
+    /* --------------------------------------------------------------------- */
+    /* 15. getClassNameFromByteCode – real class bytecode extraction          */
+    /* --------------------------------------------------------------------- */
+    @Test
+    public void testGetClassNameFromByteCode() throws IOException {
+        // Load the bytecode of a known class (this test class itself)
+        String className = this.getClass().getName();
+        String resourcePath = className.replace('.', '/') + ".class";
+        byte[] byteCode = this.getClass().getClassLoader().getResourceAsStream(resourcePath).readAllBytes();
+
+        String extracted = ReflectionUtils.getClassNameFromByteCode(byteCode);
+        assertEquals(className, extracted);
+    }
+
+    @Test(expected = IOException.class)
+    public void testGetClassNameFromByteCodeInvalidStream() throws IOException {
+        // Pass an empty array – parsing will fail when reading the constant pool
+        ReflectionUtils.getClassNameFromByteCode(new byte[0]);
+    }
+
+    /* --------------------------------------------------------------------- */
+    /* 16. Edge case for makeParamKey (private) – exercised indirectly via
+     *     cache key creation for methods/constructors. We verify that a
+     *     cache key with no parameters yields an empty string.               */
+    /* --------------------------------------------------------------------- */
+    @Test
+    public void testMethodCacheKeyEmptyParamKey() throws Exception {
+        // Using reflection to instantiate the public MethodCacheKey with no param types
+        MethodCacheKey key = new MethodCacheKey(String.class, "length");
+        // The internal hash is based on an empty param key; we just verify that creation does not throw
+        assertNotNull(key);
+    }
+}
