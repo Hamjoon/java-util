@@ -69,3 +69,6 @@ experiments/**
 !experiments/*/results/policy/pools/*/*/generated/*/round*/funnel.md
 !experiments/*/results/policy/pools/*/*/generated/*/round*/sources/
 !experiments/*/results/policy/pools/*/*/generated/*/round*/sources/**
+
+# Ouedraogo round 2 is archived on disk but not used in the results (rounds.max: 1, 2026-11-14)
+experiments/commit-survival/generated/ouedraogo/round2/

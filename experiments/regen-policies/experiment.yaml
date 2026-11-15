@@ -45,6 +45,7 @@ generators:
     docker:
       compose_files:
         - /opt/experiment/experiment-projects/KTester/docker/compose.yml
+        - /opt/experiment/setup/ktester-lab.compose.yml   # lab container only: mem_limit 48g (KTester workers 32; 4 concurrent = 192g of 251g)
       service: ktester
       mounts:
         /opt/experiment/experiment-projects/java-util: /repo
@@ -56,7 +57,7 @@ generators:
     method: ouedraogo
     impl: native
     params: {prompts: [ZSL, FSL, CoT, ToT, GToT], temperature: 0.7, max_tokens: 16384}
-    rounds: {max: 2, until_dev_matched: false, stop_after_zero_compile: 2}
+    rounds: {max: 1}
     context:
       dependency_signatures: {enabled: true, max_types: 15, max_lines: 400}
     prompt:
@@ -111,6 +112,7 @@ policies:
   max_threshold_triggers: 1
   generator_overrides:
     ktester: {params: {fix_tries: 3}}
+    ouedraogo: {params: {workers: 8}}   # concurrent model calls per generation (needs test-survival PR #44); x4 policies.concurrency = up to 32
   concurrency:
     ktester: 4
     ouedraogo: 4
