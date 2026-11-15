@@ -1,0 +1,136 @@
+package com.cedarsoftware.util.convert;
+
+import org.junit.Before;
+import org.junit.Test;
+
+import java.time.OffsetTime;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
+import java.util.Map;
+
+import static org.junit.Assert.*;
+
+/**
+ * JUnit‑4 test suite for {@link OffsetTimeConversions}.
+ *
+ * The tests cover:
+ * <ul>
+ *   <li>Typical conversion of {@link OffsetTime} to {@link String} using ISO‑8601 format.</li>
+ *   <li>Edge‑cases such as zero offset, maximum nanosecond precision and negative offsets.</li>
+ *   <li>Conversion of {@link OffsetTime} to a {@link Map} and verification of the expected key/value.</li>
+ *   <li>Error handling – passing {@code null} or an object of the wrong type.</li>
+ * </ul>
+ *
+ * Only public APIs that appear in the supplied source code or in the listed
+ * dependency signatures are used; no mocks or subclassing of library classes are performed.
+ */
+public class OffsetTimeConversionsTest {
+
+    private Converter converter;   // a real Converter instance – options are not relevant for these tests
+
+    @Before
+    public void setUp() {
+        // ConverterOptions is part of the library; a default instance is sufficient for the tests.
+        // If the library provides a no‑arg constructor for ConverterOptions we use it,
+        // otherwise we pass {@code null} which the library accepts.
+        ConverterOptions options;
+        try {
+            options = new ConverterOptions();               // most libraries expose a public default ctor
+        } catch (Throwable t) {
+            // fallback – the constructor may be package‑private; the Converter ctor tolerates null.
+            options = null;
+        }
+        converter = new Converter(options);
+    }
+
+    /* --------------------------------------------------------------
+     *  Tests for toString(Object, Converter)
+     * -------------------------------------------------------------- */
+
+    @Test
+    public void toStringTypical() {
+        OffsetTime time = OffsetTime.of(13, 45, 30, 0, ZoneOffset.ofHoursMinutes(2, 30));
+        String result = OffsetTimeConversions.toString(time, converter);
+        assertEquals(time.format(DateTimeFormatter.ISO_OFFSET_TIME), result);
+    }
+
+    @Test
+    public void toStringWithNanoseconds() {
+        // 12:34:56.123456789 with a +05:00 offset
+        OffsetTime time = OffsetTime.of(12, 34, 56, 123_456_789, ZoneOffset.ofHours(5));
+        String result = OffsetTimeConversions.toString(time, converter);
+        assertEquals(time.format(DateTimeFormatter.ISO_OFFSET_TIME), result);
+    }
+
+    @Test
+    public void toStringZeroOffset() {
+        OffsetTime time = OffsetTime.of(00, 00, 00, 0, ZoneOffset.UTC);
+        String result = OffsetTimeConversions.toString(time, converter);
+        assertEquals("00:00Z", result); // ISO_OFFSET_TIME formats UTC as “Z”
+    }
+
+    @Test
+    public void toStringNegativeOffset() {
+        OffsetTime time = OffsetTime.of(23, 59, 59, 0, ZoneOffset.ofHours(-4));
+        String result = OffsetTimeConversions.toString(time, converter);
+        assertEquals(time.format(DateTimeFormatter.ISO_OFFSET_TIME), result);
+    }
+
+    @Test(expected = NullPointerException.class)
+    public void toStringNullInput() {
+        OffsetTimeConversions.toString(null, converter);
+    }
+
+    @Test(expected = ClassCastException.class)
+    public void toStringWrongType() {
+        // Pass a String instead of an OffsetTime – the method casts without checking.
+        OffsetTimeConversions.toString("not an OffsetTime", converter);
+    }
+
+    /* --------------------------------------------------------------
+     *  Tests for toMap(Object, Converter)
+     * -------------------------------------------------------------- */
+
+    @Test
+    public void toMapTypical() {
+        OffsetTime time = OffsetTime.of(9, 15, 0, 0, ZoneOffset.ofHours(1));
+        Map<String, Object> map = OffsetTimeConversions.toMap(time, converter);
+
+        // The map must contain exactly one entry with key MapConversions.TIME
+        assertEquals(1, map.size());
+        assertTrue(map.containsKey(MapConversions.TIME));
+        assertEquals(time.toString(), map.get(MapConversions.TIME));
+    }
+
+    @Test
+    public void toMapWithNanosecondsAndNegativeOffset() {
+        OffsetTime time = OffsetTime.of(22, 0, 0, 987_654_321, ZoneOffset.ofHoursMinutes(-3, -45));
+        Map<String, Object> map = OffsetTimeConversions.toMap(time, converter);
+
+        assertEquals(1, map.size());
+        assertEquals(time.toString(), map.get(MapConversions.TIME));
+    }
+
+    @Test(expected = NullPointerException.class)
+    public void toMapNullInput() {
+        OffsetTimeConversions.toMap(null, converter);
+    }
+
+    @Test(expected = ClassCastException.class)
+    public void toMapWrongType() {
+        OffsetTimeConversions.toMap(12345, converter);
+    }
+
+    /* --------------------------------------------------------------
+     *  Additional sanity check – the map returned is a CompactMap
+     * -------------------------------------------------------------- */
+
+    @Test
+    public void toMapReturnsCompactMapInstance() {
+        OffsetTime time = OffsetTime.now();
+        Map<String, Object> map = OffsetTimeConversions.toMap(time, converter);
+        // CompactMap is a concrete class; we can safely check the runtime type.
+        assertTrue("Returned map should be an instance of CompactMap",
+                map instanceof CompactMap);
+    }
+}

@@ -1,0 +1,112 @@
+package com.cedarsoftware.util.convert;
+
+import static com.cedarsoftware.util.convert.MapConversions.CAUSE;
+import static com.cedarsoftware.util.convert.MapConversions.CAUSE_MESSAGE;
+import static com.cedarsoftware.util.convert.MapConversions.CLASS;
+import static com.cedarsoftware.util.convert.MapConversions.MESSAGE;
+import static org.junit.Assert.*;
+
+import java.util.Map;
+
+import org.junit.Test;
+
+/**
+ * Tests for {@link ThrowableConversions}.
+ * <p>
+ * The tests cover:
+ * <ul>
+ *   <li>Conversion of a {@link Throwable} without a cause.</li>
+ *   <li>Conversion of a {@link Throwable} with a cause (including null messages).</li>
+ *   <li>Verification that the returned map is a {@link CompactLinkedMap}.</li>
+ *   <li>Behaviour when the source object is not a {@link Throwable}.</li>
+ *   <li>Behaviour when the source object is {@code null}.</li>
+ * </ul>
+ */
+public class ThrowableConversionsTest {
+
+    /**
+     * Helper that invokes {@code ThrowableConversions.toMap} with a {@code null}
+     * {@link Converter}. The {@code Converter} argument is not used by the method,
+     * so passing {@code null} is safe.
+     */
+    private static Map<String, Object> toMap(Object o) {
+        return ThrowableConversions.toMap(o, null);
+    }
+
+    @Test
+    public void testToMapWithoutCause() {
+        Exception ex = new Exception("simple message");
+
+        Map<String, Object> map = toMap(ex);
+
+        // Verify the concrete map implementation
+        assertTrue("Map should be a CompactLinkedMap", map instanceof CompactLinkedMap);
+
+        // Expected entries
+        assertEquals("Class name should match", Exception.class.getName(), map.get(CLASS));
+        assertEquals("Message should be stored", "simple message", map.get(MESSAGE));
+
+        // No cause information should be present
+        assertFalse("Map must not contain CAUSE key", map.containsKey(CAUSE));
+        assertFalse("Map must not contain CAUSE_MESSAGE key", map.containsKey(CAUSE_MESSAGE));
+    }
+
+    @Test
+    public void testToMapWithCause() {
+        IllegalArgumentException cause = new IllegalArgumentException("root cause");
+        RuntimeException ex = new RuntimeException("wrapper message", cause);
+
+        Map<String, Object> map = toMap(ex);
+
+        assertEquals(RuntimeException.class.getName(), map.get(CLASS));
+        assertEquals("wrapper message", map.get(MESSAGE));
+
+        assertEquals(IllegalArgumentException.class.getName(), map.get(CAUSE));
+        assertEquals("root cause", map.get(CAUSE_MESSAGE));
+    }
+
+    @Test
+    public void testToMapWithNullMessages() {
+        // Cause with a null message
+        NullPointerException cause = new NullPointerException();
+        // Exception with a null message but with a cause that also has a null message
+        Exception ex = new Exception(null, cause);
+
+        Map<String, Object> map = toMap(ex);
+
+        assertEquals(Exception.class.getName(), map.get(CLASS));
+        assertNull("Message should be null when exception message is null", map.get(MESSAGE));
+
+        assertEquals(NullPointerException.class.getName(), map.get(CAUSE));
+        assertNull("Cause message should be null when cause message is null", map.get(CAUSE_MESSAGE));
+    }
+
+    @Test
+    public void testToMapWithCauseHavingNoMessage() {
+        // Cause without a message
+        IllegalStateException cause = new IllegalStateException();
+        // Wrapper exception with its own message
+        Exception ex = new Exception("wrapper", cause);
+
+        Map<String, Object> map = toMap(ex);
+
+        assertEquals(Exception.class.getName(), map.get(CLASS));
+        assertEquals("wrapper", map.get(MESSAGE));
+
+        assertEquals(IllegalStateException.class.getName(), map.get(CAUSE));
+        assertNull("Cause message should be null when cause has no message", map.get(CAUSE_MESSAGE));
+    }
+
+    @Test(expected = ClassCastException.class)
+    public void testToMapWithNonThrowableObject() {
+        // Passing a plain String should result in a ClassCastException
+        toMap("I am not a Throwable");
+    }
+
+    @Test(expected = NullPointerException.class)
+    public void testToMapWithNullSource() {
+        // Passing null as the source object triggers a NPE when the method
+        // attempts to call getClass() on the casted value.
+        toMap(null);
+    }
+}

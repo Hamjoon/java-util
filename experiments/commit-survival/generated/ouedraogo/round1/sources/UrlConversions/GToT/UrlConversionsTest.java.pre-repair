@@ -1,0 +1,136 @@
+package com.cedarsoftware.util.convert;
+
+import org.junit.Test;
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.rules.ExpectedException;
+
+import java.net.MalformedURLException;
+import java.net.URI;
+import java.net.URL;
+import java.util.Map;
+
+import static com.cedarsoftware.util.convert.MapConversions.URL_KEY;
+import static org.junit.Assert.*;
+
+/**
+ * JUnit‑4 test suite for {@link UrlConversions}.
+ *
+ * <p>The test class lives in the same package as {@code UrlConversions} so it can
+ * invoke the package‑private static methods directly.</p>
+ *
+ * <p>All public methods of {@code UrlConversions} are listed below:</p>
+ * <ul>
+ *   <li>{@code static Map<String,Object> toMap(Object from, Converter converter)}</li>
+ *   <li>{@code static URI toURI(Object from, Converter converter)}</li>
+ * </ul>
+ *
+ * <p>The suite contains:</p>
+ * <ul>
+ *   <li>basic happy‑path tests,</li>
+ *   <li>edge‑case tests (null arguments, URLs with spaces, special characters, etc.),</li>
+ *   <li>exception‑handling tests verifying that the wrapper {@code IllegalArgumentException}
+ *       is thrown when {@code URL.toURI()} fails.</li>
+ * </ul>
+ */
+public class UrlConversionsTest {
+
+    // -----------------------------------------------------------------------
+    //  Fixtures
+    // -----------------------------------------------------------------------
+
+    private Converter dummyConverter;   // Converter is not used by UrlConversions,
+                                      // so a simple instance (or null) is sufficient.
+
+    @Before
+    public void setUp() {
+        // The real Converter requires a ConverterOptions instance.  For the purpose
+        // of these tests we can safely pass null because UrlConversions never touches
+        // the converter argument.
+        dummyConverter = null;
+    }
+
+    @Rule
+    public ExpectedException thrown = ExpectedException.none();
+
+    // -----------------------------------------------------------------------
+    //  Tests for toMap(...)
+    // -----------------------------------------------------------------------
+
+    @Test
+    public void testToMap_BasicUrl() throws MalformedURLException {
+        URL url = new URL("http://example.com/path?query=1#frag");
+        Map<String, Object> result = UrlConversions.toMap(url, dummyConverter);
+
+        assertNotNull("Resulting map must not be null", result);
+        assertTrue("Result should be an instance of CompactLinkedMap",
+                result instanceof CompactLinkedMap);
+        assertEquals("Map must contain exactly one entry", 1, result.size());
+
+        Object stored = result.get(URL_KEY);
+        assertNotNull("Map must contain the URL_KEY entry", stored);
+        assertEquals("Stored URL string must match the original URL",
+                url.toString(), stored);
+    }
+
+    @Test
+    public void testToMap_NullInput() {
+        thrown.expect(NullPointerException.class);
+        UrlConversions.toMap(null, dummyConverter);
+    }
+
+    @Test
+    public void testToMap_UrlWithSpecialCharacters() throws MalformedURLException {
+        // URL encoding is handled by the URL constructor; we use a path with %20 (space)
+        URL url = new URL("http://example.com/space%20here");
+        Map<String, Object> map = UrlConversions.toMap(url, dummyConverter);
+        assertEquals(url.toString(), map.get(URL_KEY));
+    }
+
+    // -----------------------------------------------------------------------
+    //  Tests for toURI(...)
+    // -----------------------------------------------------------------------
+
+    @Test
+    public void testToURI_ValidUrl() throws Exception {
+        URL url = new URL("https://www.example.org:8080/test/path?param=value#section");
+        URI uri = UrlConversions.toURI(url, dummyConverter);
+
+        assertNotNull("URI must not be null", uri);
+        assertEquals("URI string must match URL string", url.toURI(), uri);
+    }
+
+    @Test
+    public void testToURI_UrlWithSpace_ShouldWrapException() throws MalformedURLException {
+        // URL with an unescaped space is illegal for URI conversion; URL class accepts it,
+        // but toURI() will throw a URISyntaxException which is wrapped.
+        URL url = new URL("http://example.com/space here");
+
+        thrown.expect(IllegalArgumentException.class);
+        thrown.expectMessage("Unable to convert URL to URI");
+        thrown.expectMessage(url.toString());
+
+        UrlConversions.toURI(url, dummyConverter);
+    }
+
+    @Test
+    public void testToURI_NullInput() {
+        thrown.expect(NullPointerException.class);
+        UrlConversions.toURI(null, dummyConverter);
+    }
+
+    // -----------------------------------------------------------------------
+    //  Additional edge‑case: URL with empty path, query, fragment
+    // -----------------------------------------------------------------------
+
+    @Test
+    public void testToURI_UrlWithEmptyComponents() throws Exception {
+        URL url = new URL("http://example.com");
+        URI uri = UrlConversions.toURI(url, dummyConverter);
+        assertEquals(url.toURI(), uri);
+        assertEquals("http", uri.getScheme());
+        assertEquals("example.com", uri.getHost());
+        assertEquals(-1, uri.getPort());
+        assertEquals("", uri.getPath());
+    }
+}

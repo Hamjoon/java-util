@@ -1,0 +1,113 @@
+package com.cedarsoftware.util.convert;
+
+import java.time.ZoneId;
+import java.util.Map;
+import java.util.TimeZone;
+
+import org.junit.Test;
+import static org.junit.Assert.*;
+
+import static com.cedarsoftware.util.convert.MapConversions.ZONE;
+
+/**
+ * JUnit‑4 test suite for {@link TimeZoneConversions}.
+ * Covers normal behaviour, edge cases and expected exceptions.
+ */
+public class TimeZoneConversionsTest {
+
+    // -----------------------------------------------------------------
+    // Helper – a dummy Converter (the class under test never uses it)
+    // -----------------------------------------------------------------
+    private static final Converter DUMMY_CONVERTER = new Converter(null);
+
+    // -----------------------------------------------------------------
+    // toString() basic behaviour
+    // -----------------------------------------------------------------
+    @Test
+    public void testToString_returnsTimeZoneId() {
+        TimeZone tz = TimeZone.getTimeZone("UTC");
+        String result = TimeZoneConversions.toString(tz, DUMMY_CONVERTER);
+        assertEquals("UTC", result);
+    }
+
+    @Test
+    public void testToString_withVariousIds() {
+        String[] ids = {"GMT", "GMT+02:00", "America/New_York"};
+        for (String id : ids) {
+            TimeZone tz = TimeZone.getTimeZone(id);
+            String result = TimeZoneConversions.toString(tz, DUMMY_CONVERTER);
+            assertEquals(id, result);
+        }
+    }
+
+    @Test(expected = NullPointerException.class)
+    public void testToString_nullArgumentThrowsNPE() {
+        TimeZoneConversions.toString(null, DUMMY_CONVERTER);
+    }
+
+    @Test(expected = ClassCastException.class)
+    public void testToString_wrongTypeThrowsCCE() {
+        TimeZoneConversions.toString("not a TimeZone", DUMMY_CONVERTER);
+    }
+
+    // -----------------------------------------------------------------
+    // toZoneId() basic behaviour
+    // -----------------------------------------------------------------
+    @Test
+    public void testToZoneId_returnsCorrectZoneId() {
+        TimeZone tz = TimeZone.getTimeZone("America/Los_Angeles");
+        ZoneId zid = TimeZoneConversions.toZoneId(tz, DUMMY_CONVERTER);
+        assertEquals(tz.toZoneId(), zid);
+    }
+
+    @Test
+    public void testToZoneId_withOffsetId() {
+        TimeZone tz = TimeZone.getTimeZone("GMT+05:30");
+        ZoneId zid = TimeZoneConversions.toZoneId(tz, DUMMY_CONVERTER);
+        assertEquals(tz.toZoneId(), zid);
+    }
+
+    @Test(expected = NullPointerException.class)
+    public void testToZoneId_nullArgumentThrowsNPE() {
+        TimeZoneConversions.toZoneId(null, DUMMY_CONVERTER);
+    }
+
+    @Test(expected = ClassCastException.class)
+    public void testToZoneId_wrongTypeThrowsCCE() {
+        TimeZoneConversions.toZoneId(12345, DUMMY_CONVERTER);
+    }
+
+    // -----------------------------------------------------------------
+    // toMap() basic behaviour
+    // -----------------------------------------------------------------
+    @Test
+    public void testToMap_containsZoneEntry() {
+        TimeZone tz = TimeZone.getTimeZone("GMT");
+        Map<String, Object> map = TimeZoneConversions.toMap(tz, DUMMY_CONVERTER);
+        assertNotNull(map);
+        assertTrue(map instanceof CompactLinkedMap);
+        assertEquals(1, map.size());
+        assertTrue(map.containsKey(ZONE));
+        assertEquals(tz.getID(), map.get(ZONE));
+    }
+
+    @Test
+    public void testToMap_withDifferentIds() {
+        String[] ids = {"UTC", "GMT-04:00", "Europe/Paris"};
+        for (String id : ids) {
+            TimeZone tz = TimeZone.getTimeZone(id);
+            Map<String, Object> map = TimeZoneConversions.toMap(tz, DUMMY_CONVERTER);
+            assertEquals(id, map.get(ZONE));
+        }
+    }
+
+    @Test(expected = NullPointerException.class)
+    public void testToMap_nullArgumentThrowsNPE() {
+        TimeZoneConversions.toMap(null, DUMMY_CONVERTER);
+    }
+
+    @Test(expected = ClassCastException.class)
+    public void testToMap_wrongTypeThrowsCCE() {
+        TimeZoneConversions.toMap(new Object(), DUMMY_CONVERTER);
+    }
+}

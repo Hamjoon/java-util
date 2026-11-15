@@ -1,0 +1,93 @@
+package com.cedarsoftware.util.convert;
+
+import org.junit.Test;
+import org.junit.Before;
+import static org.junit.Assert.*;
+
+import java.time.Period;
+import java.util.Map;
+
+/**
+ * Unit tests for {@link PeriodConversions}.
+ *
+ * The tests cover:
+ *   • typical usage with a positive period,
+ *   • edge cases (zero and negative values),
+ *   • error handling when the source object is {@code null},
+ *   • verification that the returned map is a {@link CompactLinkedMap}
+ *     and contains the expected keys/values.
+ *
+ * No external mocking frameworks are used – only the public constructors
+ * and methods that appear in the supplied source code.
+ */
+public class PeriodConversionsTest {
+
+    private static final String YEARS  = MapConversions.YEARS;
+    private static final String MONTHS = MapConversions.MONTHS;
+    private static final String DAYS   = MapConversions.DAYS;
+
+    private Converter dummyConverter;   // not used by the method under test
+
+    @Before
+    public void setUp() {
+        // The method does not use the Converter, so a null reference is sufficient.
+        // Keeping a field makes the test intent explicit.
+        dummyConverter = null;
+    }
+
+    /** 
+     * Typical case – a period with positive values.
+     */
+    @Test
+    public void testToMap_WithPositivePeriod() {
+        Period p = Period.of(1, 2, 3);               // P1Y2M3D
+        Map<String, Object> result = PeriodConversions.toMap(p, dummyConverter);
+
+        assertNotNull("Resulting map must not be null", result);
+        assertTrue("Result must be a CompactLinkedMap", result instanceof CompactLinkedMap);
+        assertEquals("Map should contain exactly three entries", 3, result.size());
+
+        assertEquals("Years entry is incorrect", Integer.valueOf(1), result.get(YEARS));
+        assertEquals("Months entry is incorrect", Integer.valueOf(2), result.get(MONTHS));
+        assertEquals("Days entry is incorrect", Integer.valueOf(3), result.get(DAYS));
+    }
+
+    /**
+     * Edge case – a period of zero length.
+     */
+    @Test
+    public void testToMap_WithZeroPeriod() {
+        Period zero = Period.ZERO;                  // P0D
+        Map<String, Object> result = PeriodConversions.toMap(zero, dummyConverter);
+
+        assertNotNull(result);
+        assertEquals(Integer.valueOf(0), result.get(YEARS));
+        assertEquals(Integer.valueOf(0), result.get(MONTHS));
+        assertEquals(Integer.valueOf(0), result.get(DAYS));
+    }
+
+    /**
+     * Edge case – a period with negative components.
+     * {@link Period#of(int,int,int)} accepts negative values, so we verify they are preserved.
+     */
+    @Test
+    public void testToMap_WithNegativePeriod() {
+        Period negative = Period.of(-5, -4, -3);
+        Map<String, Object> result = PeriodConversions.toMap(negative, dummyConverter);
+
+        assertNotNull(result);
+        assertEquals(Integer.valueOf(-5), result.get(YEARS));
+        assertEquals(Integer.valueOf(-4), result.get(MONTHS));
+        assertEquals(Integer.valueOf(-3), result.get(DAYS));
+    }
+
+    /**
+     * Error scenario – the source object is {@code null}.
+     * The implementation casts the argument to {@link Period} and then dereferences it,
+     * which must result in a {@link NullPointerException}.
+     */
+    @Test(expected = NullPointerException.class)
+    public void testToMap_WithNullSourceThrowsNPE() {
+        PeriodConversions.toMap(null, dummyConverter);
+    }
+}

@@ -1,0 +1,5 @@
+policy,dev_regenerations,dev_entered_after_t,dev_alive,dev_segment_denominator,dev_changed_lines_covered,dev_changed_lines_executable,ktester_regenerations,ktester_entered_after_t,ktester_alive,ktester_segment_denominator,ktester_changed_lines_covered,ktester_changed_lines_executable,ouedraogo_regenerations,ouedraogo_entered_after_t,ouedraogo_alive,ouedraogo_segment_denominator,ouedraogo_changed_lines_covered,ouedraogo_changed_lines_executable
+none,0,0,598,1185,6715,11572,0,0,1860,2688,3993,11572,0,0,2113,3403,4785,11572
+release-reset,2,3084,1616,1678,7020,11572,2,4449,2426,2495,4117,11572,2,6034,2729,3007,4757,11572
+half-reset,0,0,598,1185,6715,11572,0,0,1860,2688,3993,11572,0,0,2113,3403,4785,11572
+half-fill,0,0,598,1185,6715,11572,0,0,1860,2688,3993,11572,0,0,2113,3403,4785,11572

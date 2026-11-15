@@ -1,0 +1,60 @@
+[
+  {
+    "group": "ouedraogo",
+    "round": "round1",
+    "files": 484,
+    "compiled": 253,
+    "methods": 9287,
+    "stable_runs": 1,
+    "stable_passed": 3131,
+    "duplicates": 104,
+    "kept_this_round": 3027,
+    "total_kept": 3027,
+    "developer_denominator": 1185,
+    "ratio_to_dev": 2.5544303797468353,
+    "per_prompt": {
+      "ZSL": {
+        "files": 97,
+        "compiled": 53,
+        "methods": 1522,
+        "stable": 548,
+        "duplicates": 23,
+        "kept": 525
+      },
+      "FSL": {
+        "files": 97,
+        "compiled": 54,
+        "methods": 1624,
+        "stable": 559,
+        "duplicates": 14,
+        "kept": 545
+      },
+      "CoT": {
+        "files": 97,
+        "compiled": 50,
+        "methods": 2045,
+        "stable": 695,
+        "duplicates": 4,
+        "kept": 691
+      },
+      "ToT": {
+        "files": 97,
+        "compiled": 43,
+        "methods": 1980,
+        "stable": 570,
+        "duplicates": 31,
+        "kept": 539
+      },
+      "GToT": {
+        "files": 96,
+        "compiled": 53,
+        "methods": 2116,
+        "stable": 759,
+        "duplicates": 32,
+        "kept": 727
+      }
+    },
+    "dev_unmapped_excluded": 0,
+    "notes": []
+  }
+]

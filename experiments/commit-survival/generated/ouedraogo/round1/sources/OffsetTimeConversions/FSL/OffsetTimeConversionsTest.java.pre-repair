@@ -1,0 +1,92 @@
+package com.cedarsoftware.util.convert;
+
+import static org.junit.Assert.*;
+
+import java.time.OffsetTime;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
+import java.util.Map;
+
+import org.junit.Test;
+
+/**
+ * Unit tests for {@link OffsetTimeConversions}.
+ *
+ * The tests cover:
+ * <ul>
+ *   <li>Correct ISO‑8601 formatting produced by {@code toString}.</li>
+ *   <li>Handling of nanosecond precision.</li>
+ *   <li>Behaviour when {@code null} is supplied (expected NPE).</li>
+ *   <li>Correct map creation by {@code toMap}, including key name, value, size and concrete type.</li>
+ *   <li>Various offset scenarios (positive, negative, zero).</li>
+ * </ul>
+ */
+public class OffsetTimeConversionsTest {
+
+    /** A Converter instance is required by the API but not used by the methods under test. */
+    private final Converter dummyConverter = new Converter(null);
+
+    /* ---------------------------------------------------------------------- */
+    /* toString() tests */
+    /* ---------------------------------------------------------------------- */
+
+    @Test
+    public void testToStringSimpleTime() {
+        OffsetTime ot = OffsetTime.of(13, 45, 30, 0, ZoneOffset.ofHours(2));
+        String result = OffsetTimeConversions.toString(ot, dummyConverter);
+        // Expected ISO‑8601 representation
+        assertEquals("13:45:30+02:00", result);
+        // Double‑check using the formatter directly
+        assertEquals(ot.format(DateTimeFormatter.ISO_OFFSET_TIME), result);
+    }
+
+    @Test
+    public void testToStringWithNanoseconds() {
+        OffsetTime ot = OffsetTime.of(23, 59, 59, 123_456_789, ZoneOffset.UTC);
+        String result = OffsetTimeConversions.toString(ot, dummyConverter);
+        // ISO format includes the fractional seconds and the 'Z' literal for UTC
+        assertEquals("23:59:59.123456789Z", result);
+    }
+
+    @Test(expected = NullPointerException.class)
+    public void testToStringNullInput() {
+        OffsetTimeConversions.toString(null, dummyConverter);
+    }
+
+    /* ---------------------------------------------------------------------- */
+    /* toMap() tests */
+    /* ---------------------------------------------------------------------- */
+
+    @Test
+    public void testToMapContainsExpectedKeyAndValue() {
+        OffsetTime ot = OffsetTime.of(8, 0, 0, 0, ZoneOffset.ofHoursMinutes(-5, -30));
+        Map<String, Object> map = OffsetTimeConversions.toMap(ot, dummyConverter);
+
+        assertNotNull("Map must not be null", map);
+        assertTrue("Map should be an instance of CompactLinkedMap", map instanceof CompactLinkedMap);
+        assertEquals("Map should contain exactly one entry", 1, map.size());
+
+        // The key is defined in MapConversions.TIME
+        assertTrue("Map must contain the TIME key", map.containsKey(MapConversions.TIME));
+        assertEquals("Value must be the OffsetTime's toString()", ot.toString(), map.get(MapConversions.TIME));
+    }
+
+    @Test
+    public void testToMapWithVariousOffsets() {
+        OffsetTime[] examples = new OffsetTime[] {
+                OffsetTime.of(0, 0, 0, 0, ZoneOffset.UTC),
+                OffsetTime.of(12, 30, 15, 0, ZoneOffset.ofHours(5)),
+                OffsetTime.of(23, 59, 59, 999_000_000, ZoneOffset.ofHoursMinutes(9, 45))
+        };
+
+        for (OffsetTime ot : examples) {
+            Map<String, Object> map = OffsetTimeConversions.toMap(ot, dummyConverter);
+            assertEquals("Map value must match OffsetTime.toString()", ot.toString(), map.get(MapConversions.TIME));
+        }
+    }
+
+    @Test(expected = NullPointerException.class)
+    public void testToMapNullInput() {
+        OffsetTimeConversions.toMap(null, dummyConverter);
+    }
+}

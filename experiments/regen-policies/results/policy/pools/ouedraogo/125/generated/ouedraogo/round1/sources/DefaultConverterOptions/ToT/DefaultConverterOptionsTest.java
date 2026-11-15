@@ -1,0 +1,171 @@
+package com.cedarsoftware.util.convert;
+import com.cedarsoftware.util.convert.Converter.ConversionPair;
+
+
+import org.junit.Test;
+import org.junit.Before;
+
+import java.lang.reflect.Field;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
+import static org.junit.Assert.*;
+
+/**
+ * Comprehensive JUnit‑4 test suite for {@link DefaultConverterOptions}.
+ *
+ * The tests cover:
+ * 1. Construction – both internal maps are instantiated and initially empty.
+ * 2. {@code getCustomOption(String)} – normal retrieval, missing keys, and generic type safety.
+ * 3. {@code getConverterOverrides()} – map mutability, addition & retrieval of overrides,
+ *    and that the returned map is the live internal map.
+ *
+ * No external mocking frameworks are used; all objects are created via the
+ * public constructors and interfaces supplied in the source snippet.
+ */
+public class DefaultConverterOptionsTest {
+
+    private DefaultConverterOptions options;
+
+    @Before
+    public void setUp() {
+        options = new DefaultConverterOptions();
+    }
+
+    /** --------------------------------------------------------------
+     *  1. Constructor behaviour
+     *  -------------------------------------------------------------- */
+    @Test
+    public void testConstructorInitialisesInternalMaps() {
+        // The converter‑overrides map must be non‑null and empty.
+        Map<ConversionPair, Convert<?>> overrides = options.getConverterOverrides();
+        assertNotNull("Converter overrides map should be instantiated", overrides);
+        assertTrue("Converter overrides map should be empty after construction", overrides.isEmpty());
+
+        // The custom‑options map is private; use reflection to verify it is a ConcurrentHashMap
+        // and that it starts empty.
+        try {
+            Field customOptionsField = DefaultConverterOptions.class.getDeclaredField("customOptions");
+            customOptionsField.setAccessible(true);
+            Object mapObj = customOptionsField.get(options);
+            assertTrue("customOptions should be a ConcurrentHashMap",
+                    mapObj instanceof ConcurrentHashMap);
+            @SuppressWarnings("unchecked")
+            Map<String, Object> customMap = (Map<String, Object>) mapObj;
+            assertTrue("customOptions map should be empty after construction", customMap.isEmpty());
+        } catch (NoSuchFieldException | IllegalAccessException e) {
+            fail("Reflection on customOptions failed: " + e.getMessage());
+        }
+    }
+
+    /** --------------------------------------------------------------
+     *  2. getCustomOption(String) – happy path
+     *  -------------------------------------------------------------- */
+    @Test
+    public void testGetCustomOptionReturnsStoredValue() throws Exception {
+        // Insert a value into the private customOptions map via reflection.
+        Field field = DefaultConverterOptions.class.getDeclaredField("customOptions");
+        field.setAccessible(true);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> internal = (Map<String, Object>) field.get(options);
+        internal.put("answer", 42);
+        internal.put("greeting", "hello");
+
+        // Retrieve with exact expected type.
+        Integer answer = options.getCustomOption("answer");
+        assertEquals(Integer.valueOf(42), answer);
+
+        String greeting = options.getCustomOption("greeting");
+        assertEquals("hello", greeting);
+    }
+
+    /** --------------------------------------------------------------
+     *  3. getCustomOption(String) – missing key
+     *  -------------------------------------------------------------- */
+    @Test
+    public void testGetCustomOptionReturnsNullWhenKeyMissing() {
+        // No entry has been added for "unknown".
+        Object result = options.getCustomOption("unknown");
+        assertNull("Missing custom option should return null", result);
+    }
+
+    /** --------------------------------------------------------------
+     *  4. getCustomOption(String) – generic type safety
+     *  -------------------------------------------------------------- */
+    @Test
+    @SuppressWarnings("unchecked")
+    public void testGetCustomOptionGenericCasting() throws Exception {
+        // Store a value of type Long.
+        Field field = DefaultConverterOptions.class.getDeclaredField("customOptions");
+        field.setAccessible(true);
+        Map<String, Object> internal = (Map<String, Object>) field.get(options);
+        internal.put("timestamp", Long.valueOf(123456789L));
+
+        // Retrieve as Long – should succeed.
+        Long ts = options.getCustomOption("timestamp");
+        assertEquals(Long.valueOf(123456789L), ts);
+
+        // Retrieve as Number – also succeeds because of inheritance.
+        Number num = options.getCustomOption("timestamp");
+        assertEquals(Long.valueOf(123456789L), num);
+
+        // Retrieve as String – will succeed at compile‑time but produce a ClassCastException at runtime.
+        try {
+            String bogus = (String) options.getCustomOption("timestamp");
+            fail("Expected ClassCastException when casting Long to String");
+        } catch (ClassCastException expected) {
+            // Expected path
+        }
+    }
+
+    /** --------------------------------------------------------------
+     *  5. getConverterOverrides() – map mutability & retrieval
+     *  -------------------------------------------------------------- */
+    @Test
+    public void testAddAndRetrieveConverterOverride() {
+        // Prepare a conversion pair: String -> Integer
+        ConversionPair pair = new ConversionPair(String.class, Integer.class);
+
+        // Simple Convert implementation that parses an Integer from a String.
+        Convert<Integer> stringToInt = new Convert<Integer>() {
+            @Override
+            public Integer convert(Object from, Converter converter) {
+                return Integer.valueOf((String) from);
+            }
+        };
+
+        // Add the override via the live map returned by the API.
+        Map<ConversionPair, Convert<?>> overrides = options.getConverterOverrides();
+        overrides.put(pair, stringToInt);
+
+        // Verify the map now contains exactly one entry.
+        assertEquals(1, overrides.size());
+        assertTrue("Overrides map should contain the added pair", overrides.containsKey(pair));
+
+        // Retrieve and invoke the convert method to ensure the stored Convert works.
+        @SuppressWarnings("unchecked")
+        Convert<Integer> retrieved = (Convert<Integer>) overrides.get(pair);
+        Integer result = retrieved.convert("777", null);
+        assertEquals(Integer.valueOf(777), result);
+    }
+
+    /** --------------------------------------------------------------
+     *  6. getConverterOverrides() – isolation between instances
+     *  -------------------------------------------------------------- */
+    @Test
+    public void testConverterOverridesAreInstanceSpecific() {
+        DefaultConverterOptions other = new DefaultConverterOptions();
+
+        ConversionPair pair = new ConversionPair(String.class, Integer.class);
+        Convert<Integer> dummy = (from, converter) -> 0;
+
+        // Add to the first instance.
+        options.getConverterOverrides().put(pair, dummy);
+
+        // The second instance must remain empty.
+        assertTrue("Second instance should have an empty overrides map",
+                other.getConverterOverrides().isEmpty());
+        assertFalse("First instance should contain the added override",
+                options.getConverterOverrides().isEmpty());
+    }
+}

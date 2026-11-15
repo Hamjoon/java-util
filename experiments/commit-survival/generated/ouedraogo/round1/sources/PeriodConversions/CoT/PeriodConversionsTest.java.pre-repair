@@ -1,0 +1,130 @@
+package com.cedarsoftware.util.convert;
+
+import org.junit.Test;
+import org.junit.Before;
+import static org.junit.Assert.*;
+
+import java.time.Period;
+import java.util.Map;
+
+/**
+ * Unit tests for {@link PeriodConversions}.
+ *
+ * The tests are written using JUnit 4 and cover:
+ * <ul>
+ *   <li>Normal conversion of a {@link Period} to a {@link Map}</li>
+ *   <li>Handling of edge‑case inputs such as {@code null} and non‑Period objects</li>
+ *   <li>Verification that the returned map is a {@link CompactLinkedMap} and contains the expected keys/values</li>
+ * </ul>
+ */
+public class PeriodConversionsTest {
+
+    private Converter dummyConverter;
+
+    @Before
+    public void setUp() {
+        // Converter is not used by PeriodConversions.toMap, but we need an instance to satisfy the method signature.
+        dummyConverter = new Converter(new ConverterOptions());
+    }
+
+    /**
+     * Helper that creates a Period and converts it using PeriodConversions.toMap.
+     */
+    private Map<String, Object> convertPeriod(Period period) {
+        return PeriodConversions.toMap(period, dummyConverter);
+    }
+
+    /**
+     * Basic functionality test: a positive period is correctly converted to a map
+     * containing the expected year, month and day entries.
+     */
+    @Test
+    public void testToMapBasicPositivePeriod() {
+        Period period = Period.of(5, 3, 12); // 5 years, 3 months, 12 days
+        Map<String, Object> map = convertPeriod(period);
+
+        // Verify map type
+        assertTrue("Result should be a CompactLinkedMap", map instanceof CompactLinkedMap);
+
+        // Verify size
+        assertEquals("Map should contain exactly three entries", 3, map.size());
+
+        // Verify content
+        assertEquals(5, map.get("years"));
+        assertEquals(3, map.get("months"));
+        assertEquals(12, map.get("days"));
+    }
+
+    /**
+     * Verify that negative values are preserved during conversion.
+     */
+    @Test
+    public void testToMapNegativeValues() {
+        Period period = Period.of(-2, -4, -10);
+        Map<String, Object> map = convertPeriod(period);
+
+        assertEquals(-2, map.get("years"));
+        assertEquals(-4, map.get("months"));
+        assertEquals(-10, map.get("days"));
+    }
+
+    /**
+     * Verify conversion of a zero period (all fields zero).
+     */
+    @Test
+    public void testToMapZeroPeriod() {
+        Period period = Period.of(0, 0, 0);
+        Map<String, Object> map = convertPeriod(period);
+
+        assertEquals(0, map.get("years"));
+        assertEquals(0, map.get("months"));
+        assertEquals(0, map.get("days"));
+    }
+
+    /**
+     * Edge case: passing {@code null} as the source object should result in a
+     * {@link NullPointerException} because the method attempts to dereference the casted Period.
+     */
+    @Test(expected = NullPointerException.class)
+    public void testToMapNullSource() {
+        PeriodConversions.toMap(null, dummyConverter);
+    }
+
+    /**
+     * Edge case: passing an object that is not a {@link Period} should cause a
+     * {@link ClassCastException} when the method attempts to cast it.
+     */
+    @Test(expected = ClassCastException.class)
+    public void testToMapNonPeriodSource() {
+        String notAPeriod = "I am not a Period";
+        PeriodConversions.toMap(notAPeriod, dummyConverter);
+    }
+
+    /**
+     * Edge case: passing {@code null} for the converter argument.
+     * The current implementation does not use the converter, so the method should still work
+     * and only fail if the source object is invalid.
+     */
+    @Test
+    public void testToMapNullConverter() {
+        Period period = Period.of(1, 2, 3);
+        Map<String, Object> map = PeriodConversions.toMap(period, null);
+
+        assertEquals(1, map.get("years"));
+        assertEquals(2, map.get("months"));
+        assertEquals(3, map.get("days"));
+    }
+
+    /**
+     * Verify that the returned map is mutable – i.e., we can put a new entry without
+     * throwing an exception.
+     */
+    @Test
+    public void testReturnedMapIsMutable() {
+        Period period = Period.of(1, 1, 1);
+        Map<String, Object> map = convertPeriod(period);
+
+        map.put("extra", "value");
+        assertEquals("value", map.get("extra"));
+    }
+}

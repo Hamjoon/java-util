@@ -1,0 +1,253 @@
+package com.cedarsoftware.util.convert;
+import com.cedarsoftware.util.CompactLinkedMap;
+
+
+import org.junit.Test;
+import org.junit.Before;
+import static org.junit.Assert.*;
+
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.sql.Timestamp;
+import java.time.Duration;
+import java.time.Instant;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
+
+/**
+ * JUnit 4 test suite for {@link DurationConversions}.
+ *
+ * The tests exercise every public static conversion method in the class.
+ * All tests use real {@link Duration} instances and a {@code null} {@link Converter}
+ * because the implementation does not depend on the converter argument.
+ *
+ * The test class resides in the same package as {@code DurationConversions}
+ * so that the package‑private static methods are directly accessible.
+ */
+public class DurationConversionsTest {
+
+    /** A dummy {@link Converter} instance – the conversion logic ignores it. */
+    private Converter dummyConverter;
+
+    @Before
+    public void setUp() {
+        // The Converter constructor requires a ConverterOptions instance.
+        // Passing {@code null} is safe for these tests because the implementation never touches the argument.
+        dummyConverter = new Converter(null);
+    }
+
+    /* ----------------------------------------------------------------------
+     * toMap()
+     * ---------------------------------------------------------------------- */
+
+    @Test
+    public void testToMap_WithPositiveSecondsAndNanos() {
+        Duration d = Duration.ofSeconds(10, 123_456_789);
+        Map<String, Object> map = DurationConversions.toMap(d, dummyConverter);
+
+        assertNotNull("Resulting map must not be null", map);
+        assertEquals("Map must contain the correct seconds value", 10L, map.get("seconds"));
+        assertEquals("Map must contain the correct nanos value", 123_456_789, map.get("nanos"));
+        // Verify that the concrete implementation is the expected CompactLinkedMap
+        assertTrue("Implementation should be CompactLinkedMap",
+                map instanceof CompactLinkedMap);
+    }
+
+    @Test
+    public void testToMap_WithNegativeDuration() {
+        // Duration.ofSeconds handles negative adjustments correctly
+        Duration d = Duration.ofSeconds(-5, -250_000_000); // -5.25 seconds
+        Map<String, Object> map = DurationConversions.toMap(d, dummyConverter);
+
+        assertEquals("Negative seconds must be preserved", -5L, map.get("seconds"));
+        assertEquals("Negative nanos must be preserved", -250_000_000, map.get("nanos"));
+    }
+
+    @Test
+    public void testToMap_WithZeroDuration() {
+        Duration d = Duration.ZERO;
+        Map<String, Object> map = DurationConversions.toMap(d, dummyConverter);
+
+        assertEquals("Zero seconds expected", 0L, map.get("seconds"));
+        assertEquals("Zero nanos expected", 0, map.get("nanos"));
+    }
+
+    /* ----------------------------------------------------------------------
+     * toLong()
+     * ---------------------------------------------------------------------- */
+
+    @Test
+    public void testToLong_MillisExact() {
+        Duration d = Duration.ofMillis(1_234L);
+        long expected = d.toMillis();
+        long actual = DurationConversions.toLong(d, dummyConverter);
+        assertEquals("toLong should return the same value as Duration.toMillis()", expected, actual);
+    }
+
+    @Test
+    public void testToLong_WithNanosecondRoundingTowardsZero_Positive() {
+        // 1 second + 999,999 nanoseconds -> 1000 ms (floor)
+        Duration d = Duration.ofSeconds(1, 999_999);
+        long expected = d.toMillis(); // should be 1000
+        long actual = DurationConversions.toLong(d, dummyConverter);
+        assertEquals(expected, actual);
+    }
+
+    @Test
+    public void testToLong_WithNanosecondRoundingTowardsZero_Negative() {
+        // -1 second - 999,999 nanoseconds -> -1000 ms (ceil toward zero)
+        Duration d = Duration.ofSeconds(-1, -999_999);
+        long expected = d.toMillis(); // should be -1000
+        long actual = DurationConversions.toLong(d, dummyConverter);
+        assertEquals(expected, actual);
+    }
+
+    /* ----------------------------------------------------------------------
+     * toAtomicLong()
+     * ---------------------------------------------------------------------- */
+
+    @Test
+    public void testToAtomicLong_EqualityWithToLong() {
+        Duration d = Duration.ofMinutes(3).plusNanos(500);
+        AtomicLong atomic = DurationConversions.toAtomicLong(d, dummyConverter);
+        long expected = DurationConversions.toLong(d, dummyConverter);
+        assertEquals("AtomicLong value must match toLong()", expected, atomic.get());
+    }
+
+    @Test
+    public void testToAtomicLong_WithNegativeDuration() {
+        Duration d = Duration.ofSeconds(-2, -250_000_000); // -2.25 seconds
+        AtomicLong atomic = DurationConversions.toAtomicLong(d, dummyConverter);
+        assertEquals(d.toMillis(), atomic.get());
+    }
+
+    /* ----------------------------------------------------------------------
+     * toBigInteger()
+     * ---------------------------------------------------------------------- */
+
+    @Test
+    public void testToBigInteger_PositiveValues() {
+        Duration d = Duration.ofSeconds(7, 123_456_789);
+        BigInteger result = DurationConversions.toBigInteger(d, dummyConverter);
+
+        BigInteger expected = BigInteger.valueOf(7L).multiply(BigIntegerConversions.BILLION)
+                .add(BigInteger.valueOf(123_456_789L));
+        assertEquals("BigInteger conversion must match manual calculation", expected, result);
+    }
+
+    @Test
+    public void testToBigInteger_NegativeValues() {
+        Duration d = Duration.ofSeconds(-3, -987_654_321);
+        BigInteger result = DurationConversions.toBigInteger(d, dummyConverter);
+
+        BigInteger expected = BigInteger.valueOf(-3L).multiply(BigIntegerConversions.BILLION)
+                .add(BigInteger.valueOf(-987_654_321L));
+        assertEquals(expected, result);
+    }
+
+    @Test
+    public void testToBigInteger_ZeroDuration() {
+        assertEquals(BigInteger.ZERO, DurationConversions.toBigInteger(Duration.ZERO, dummyConverter));
+    }
+
+    /* ----------------------------------------------------------------------
+     * toDouble()
+     * ---------------------------------------------------------------------- */
+
+    @Test
+    public void testToDouble_PositiveDuration() {
+        Duration d = Duration.ofSeconds(2, 250_000_000); // 2.25 seconds
+        double expected = d.getSeconds() + d.getNano() / 1_000_000_000d;
+        double actual = DurationConversions.toDouble(d, dummyConverter);
+        assertEquals("Double conversion must be within 1e-12 of expected value",
+                expected, actual, 1e-12);
+    }
+
+    @Test
+    public void testToDouble_NegativeDuration() {
+        Duration d = Duration.ofSeconds(-4, -500_000_000); // -4.5 seconds
+        double expected = d.getSeconds() + d.getNano() / 1_000_000_000d;
+        double actual = DurationConversions.toDouble(d, dummyConverter);
+        assertEquals(expected, actual, 1e-12);
+    }
+
+    @Test
+    public void testToDouble_ZeroDuration() {
+        assertEquals(0.0, DurationConversions.toDouble(Duration.ZERO, dummyConverter), 0.0);
+    }
+
+    /* ----------------------------------------------------------------------
+     * toBigDecimal()
+     * ---------------------------------------------------------------------- */
+
+    @Test
+    public void testToBigDecimal_Positive() {
+        Duration d = Duration.ofSeconds(5, 600_000_000); // 5.6 seconds
+        BigDecimal actual = DurationConversions.toBigDecimal(d, dummyConverter);
+
+        BigDecimal expected = BigDecimal.valueOf(d.getSeconds())
+                .add(BigDecimal.valueOf(d.getNano()).scaleByPowerOfTen(-9));
+        assertEquals("BigDecimal conversion must match manual calculation", 0, expected.compareTo(actual));
+    }
+
+    @Test
+    public void testToBigDecimal_Negative() {
+        Duration d = Duration.ofSeconds(-2, -300_000_000); // -2.3 seconds
+        BigDecimal actual = DurationConversions.toBigDecimal(d, dummyConverter);
+
+        BigDecimal expected = BigDecimal.valueOf(d.getSeconds())
+                .add(BigDecimal.valueOf(d.getNano()).scaleByPowerOfTen(-9));
+        assertEquals(0, expected.compareTo(actual));
+    }
+
+    @Test
+    public void testToBigDecimal_Zero() {
+        assertEquals(BigDecimal.ZERO, DurationConversions.toBigDecimal(Duration.ZERO, dummyConverter));
+    }
+
+    /* ----------------------------------------------------------------------
+     * toTimestamp()
+     * ---------------------------------------------------------------------- */
+
+    @Test
+    public void testToTimestamp_PositiveDuration() {
+        Duration d = Duration.ofSeconds(10, 123_456_789);
+        Timestamp ts = DurationConversions.toTimestamp(d, dummyConverter);
+
+        Instant expectedInstant = Instant.EPOCH.plus(d);
+        Timestamp expectedTs = Timestamp.from(expectedInstant);
+        assertEquals("Timestamp must represent epoch+duration", expectedTs, ts);
+    }
+
+    @Test
+    public void testToTimestamp_NegativeDuration() {
+        Duration d = Duration.ofSeconds(-1, -500_000_000); // -1.5 seconds
+        Timestamp ts = DurationConversions.toTimestamp(d, dummyConverter);
+
+        Instant expectedInstant = Instant.EPOCH.plus(d);
+        Timestamp expectedTs = Timestamp.from(expectedInstant);
+        assertEquals(expectedTs, ts);
+    }
+
+    @Test
+    public void testToTimestamp_ZeroDuration() {
+        Timestamp ts = DurationConversions.toTimestamp(Duration.ZERO, dummyConverter);
+        assertEquals(Timestamp.from(Instant.EPOCH), ts);
+    }
+
+    /* ----------------------------------------------------------------------
+     * Defensive checks – passing null as converter must not throw.
+     * ---------------------------------------------------------------------- */
+
+    @Test
+    public void testAllMethods_WithNullConverter() {
+        Duration d = Duration.ofSeconds(1, 1);
+        assertNotNull(DurationConversions.toMap(d, null));
+        assertEquals(d.toMillis(), DurationConversions.toLong(d, null));
+        assertEquals(d.toMillis(), DurationConversions.toAtomicLong(d, null).get());
+        assertEquals(DurationConversions.toBigInteger(d, null), DurationConversions.toBigInteger(d, null));
+        assertEquals(DurationConversions.toDouble(d, null), DurationConversions.toDouble(d, null), 0.0);
+        assertEquals(DurationConversions.toBigDecimal(d, null), DurationConversions.toBigDecimal(d, null));
+        assertEquals(DurationConversions.toTimestamp(d, null), DurationConversions.toTimestamp(d, null));
+    }
+}

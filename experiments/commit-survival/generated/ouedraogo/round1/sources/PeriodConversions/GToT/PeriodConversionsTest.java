@@ -1,0 +1,89 @@
+package com.cedarsoftware.util.convert;
+import com.cedarsoftware.util.CompactLinkedMap;
+
+
+import org.junit.Test;
+import static org.junit.Assert.*;
+
+import java.time.Period;
+import java.util.Map;
+
+/**
+ * Comprehensive tests for {@link PeriodConversions}.
+ *
+ * Covers:
+ *   • normal conversion
+ *   • zero and negative values
+ *   • null and wrong‑type inputs (exception paths)
+ *   • null {@code Converter} argument (converter is unused)
+ *   • verification that the returned map is a {@code CompactLinkedMap}
+ *
+ * All tests are written with JUnit 4.
+ */
+public class PeriodConversionsTest {
+
+    /*** 1. Normal conversion test ***/
+    @Test
+    public void testToMapBasic() {
+        Period p = Period.of(2, 5, 10);
+        Map<String, Object> map = PeriodConversions.toMap(p, null);
+
+        assertEquals("Years should be 2", 2, map.get(MapConversions.YEARS));
+        assertEquals("Months should be 5", 5, map.get(MapConversions.MONTHS));
+        assertEquals("Days should be 10", 10, map.get(MapConversions.DAYS));
+    }
+
+    /*** 2. Zero values ***/
+    @Test
+    public void testToMapZeroValues() {
+        Period p = Period.of(0, 0, 0);
+        Map<String, Object> map = PeriodConversions.toMap(p, null);
+
+        assertEquals("Years should be 0", 0, map.get(MapConversions.YEARS));
+        assertEquals("Months should be 0", 0, map.get(MapConversions.MONTHS));
+        assertEquals("Days should be 0", 0, map.get(MapConversions.DAYS));
+    }
+
+    /*** 3. Negative values ***/
+    @Test
+    public void testToMapNegativeValues() {
+        Period p = Period.of(-3, -7, -15);
+        Map<String, Object> map = PeriodConversions.toMap(p, null);
+
+        assertEquals("Years should be -3", -3, map.get(MapConversions.YEARS));
+        assertEquals("Months should be -7", -7, map.get(MapConversions.MONTHS));
+        assertEquals("Days should be -15", -15, map.get(MapConversions.DAYS));
+    }
+
+    /*** 4. Null `from` argument – expect NPE ***/
+    @Test(expected = NullPointerException.class)
+    public void testToMapNullFrom() {
+        PeriodConversions.toMap(null, null);
+    }
+
+    /*** 5. Wrong type for `from` – expect ClassCastException ***/
+    @Test(expected = ClassCastException.class)
+    public void testToMapInvalidFrom() {
+        PeriodConversions.toMap("I am not a Period", null);
+    }
+
+    /*** 6. Null `converter` argument – method should still work ***/
+    @Test
+    public void testToMapNullConverter() {
+        Period p = Period.of(1, 1, 1);
+        Map<String, Object> map = PeriodConversions.toMap(p, null);
+        assertNotNull("Map should not be null", map);
+        assertEquals(1, map.get(MapConversions.YEARS));
+        assertEquals(1, map.get(MapConversions.MONTHS));
+        assertEquals(1, map.get(MapConversions.DAYS));
+    }
+
+    /*** 7. Verify the concrete map implementation ***/
+    @Test
+    public void testReturnedMapImplementation() {
+        Period p = Period.of(4, 2, 8);
+        Map<String, Object> map = PeriodConversions.toMap(p, null);
+        assertTrue("Returned map should be an instance of CompactLinkedMap",
+                   map instanceof CompactLinkedMap);
+    }
+}

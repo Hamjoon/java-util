@@ -1,0 +1,638 @@
+package com.cedarsoftware.util;
+
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+
+import javax.xml.stream.XMLStreamException;
+import javax.xml.stream.XMLStreamReader;
+import javax.xml.stream.XMLStreamWriter;
+import java.io.*;
+import java.net.URLConnection;
+import java.util.Arrays;
+import java.util.zip.GZIPInputStream;
+import java.util.zip.InflaterInputStream;
+
+import static org.junit.Assert.*;
+
+/**
+ * Comprehensive JUnit‑4 test suite for {@link IOUtilities}.
+ *
+ * The suite follows the “three‑expert” workflow described in the prompt:
+ *   1. List all public methods.
+ *   2. Provide a basic test for each method.
+ *   3. Identify edge‑cases / exception scenarios.
+ *   4. Add dedicated tests for those edge cases.
+ *   5. Merge everything into a single test class.
+ *
+ * All tests use only the classes, constructors and methods that appear in the
+ * supplied source code (or the minimal stubs given for {@code FastByteArrayOutputStream}
+ * and {@code TransferCallback}). No external mocking frameworks are used.
+ */
+public class IOUtilitiesTest
+{
+    /** Temporary files used by several tests – created in {@link #setUp()} and deleted in {@link #tearDown()}. */
+    private File tempFile;
+    private File emptyFile;
+
+    @Before
+    public void setUp() throws IOException
+    {
+        tempFile   = File.createTempFile("IOUtilitiesTest", ".tmp");
+        emptyFile  = File.createTempFile("IOUtilitiesTestEmpty", ".tmp");
+        // Write known data to tempFile
+        try (FileOutputStream fos = new FileOutputStream(tempFile))
+        {
+            fos.write("The quick brown fox jumps over the lazy dog".getBytes("UTF-8"));
+        }
+        // emptyFile stays empty
+    }
+
+    @After
+    public void tearDown()
+    {
+        if (tempFile != null && tempFile.exists())
+        {
+            tempFile.delete();
+        }
+        if (emptyFile != null && emptyFile.exists())
+        {
+            emptyFile.delete();
+        }
+    }
+
+    /* ---------------------------------------------------------------------- */
+    /*  1. LIST OF PUBLIC METHODS (extracted from IOUtilities)               */
+    /* ---------------------------------------------------------------------- */
+    // public static InputStream getInputStream(URLConnection c) throws IOException
+    // public static void transfer(File f, URLConnection c, TransferCallback cb) throws Exception
+    // public static void transfer(URLConnection c, File f, TransferCallback cb) throws Exception
+    // public static void transfer(InputStream s, File f, TransferCallback cb) throws Exception
+    // public static void transfer(InputStream in, OutputStream out, TransferCallback cb) throws IOException
+    // public static void transfer(InputStream in, byte[] bytes) throws IOException
+    // public static void transfer(InputStream in, OutputStream out) throws IOException
+    // public static void transfer(File file, OutputStream out) throws IOException
+    // public static void close(XMLStreamReader reader)
+    // public static void close(XMLStreamWriter writer)
+    // public static void close(Closeable c)
+    // public static void flush(Flushable f)
+    // public static void flush(XMLStreamWriter writer)
+    // public static byte[] inputStreamToBytes(InputStream in)
+    // public static void transfer(URLConnection c, byte[] bytes) throws IOException
+    // public static void compressBytes(ByteArrayOutputStream original, ByteArrayOutputStream compressed) throws IOException
+    // public static void compressBytes(FastByteArrayOutputStream original, FastByteArrayOutputStream compressed) throws IOException
+    // public static byte[] compressBytes(byte[] bytes)
+    // public static byte[] compressBytes(byte[] bytes, int offset, int len)
+    // public static byte[] uncompressBytes(byte[] bytes)
+    // public static byte[] uncompressBytes(byte[] bytes, int offset, int len)
+
+    /* ---------------------------------------------------------------------- */
+    /*  2. BASIC FUNCTIONALITY TESTS                                            */
+    /* ---------------------------------------------------------------------- */
+
+    /** Helper URLConnection that stores written bytes in a ByteArrayOutputStream. */
+    private static class TestURLConnection extends URLConnection
+    {
+        private final ByteArrayOutputStream out = new ByteArrayOutputStream();
+        private final ByteArrayInputStream  in;
+        private final String contentEncoding;
+
+        protected TestURLConnection(ByteArrayInputStream in, String contentEncoding)
+        {
+            super(null);
+            this.in = in;
+            this.contentEncoding = contentEncoding;
+        }
+
+        @Override
+        public void connect() { /* no real connection */ }
+
+        @Override
+        public InputStream getInputStream()
+        {
+            return in;
+        }
+
+        @Override
+        public OutputStream getOutputStream()
+        {
+            return out;
+        }
+
+        @Override
+        public String getContentEncoding()
+        {
+            return contentEncoding;
+        }
+
+        public byte[] getWrittenBytes()
+        {
+            return out.toByteArray();
+        }
+    }
+
+    /** Simple TransferCallback implementation that records the number of bytes transferred. */
+    private static class RecordingCallback implements IOUtilities.TransferCallback
+    {
+        private int total = 0;
+        private boolean cancel = false;
+
+        @Override
+        public void bytesTransferred(byte[] bytes, int count)
+        {
+            total += count;
+        }
+
+        @Override
+        public boolean isCancelled()
+        {
+            return cancel;
+        }
+
+        public int getTotal()
+        {
+            return total;
+        }
+
+        public void setCancelled(boolean cancelled)
+        {
+            this.cancel = cancelled;
+        }
+    }
+
+    @Test
+    public void testGetInputStream_NoEncoding() throws Exception
+    {
+        byte[] data = "plain data".getBytes("UTF-8");
+        TestURLConnection conn = new TestURLConnection(new ByteArrayInputStream(data), null);
+        InputStream is = IOUtilities.getInputStream(conn);
+        byte[] read = IOUtilities.inputStreamToBytes(is);
+        assertArrayEquals(data, read);
+    }
+
+    @Test
+    public void testGetInputStream_GzipEncoding() throws Exception
+    {
+        // Prepare gzipped payload
+        ByteArrayOutputStream gzipped = new ByteArrayOutputStream();
+        try (DeflaterOutputStream dos = new AdjustableGZIPOutputStream(gzipped, Deflater.BEST_SPEED))
+        {
+            dos.write("gzipped data".getBytes("UTF-8"));
+        }
+        byte[] gzippedBytes = gzipped.toByteArray();
+
+        TestURLConnection conn = new TestURLConnection(new ByteArrayInputStream(gzippedBytes), "gzip");
+        InputStream is = IOUtilities.getInputStream(conn);
+        // The returned stream should already be a GZIPInputStream wrapped in BufferedInputStream
+        byte[] read = IOUtilities.inputStreamToBytes(is);
+        assertArrayEquals("gzipped data".getBytes("UTF-8"), read);
+    }
+
+    @Test
+    public void testGetInputStream_DeflateEncoding() throws Exception
+    {
+        // Create deflated data
+        ByteArrayOutputStream deflated = new ByteArrayOutputStream();
+        DeflaterOutputStream dos = new DeflaterOutputStream(deflated);
+        dos.write("deflated data".getBytes("UTF-8"));
+        dos.close();
+        byte[] deflatedBytes = deflated.toByteArray();
+
+        TestURLConnection conn = new TestURLConnection(new ByteArrayInputStream(deflatedBytes), "deflate");
+        InputStream is = IOUtilities.getInputStream(conn);
+        // The stream should be an InflaterInputStream wrapped in a BufferedInputStream
+        byte[] read = IOUtilities.inputStreamToBytes(is);
+        assertArrayEquals("deflated data".getBytes("UTF-8"), read);
+    }
+
+    @Test
+    public void testTransfer_File_To_URLConnection() throws Exception
+    {
+        TestURLConnection conn = new TestURLConnection(null, null);
+        RecordingCallback cb = new RecordingCallback();
+
+        IOUtilities.transfer(tempFile, conn, cb);
+
+        byte[] expected = IOUtilities.inputStreamToBytes(new FileInputStream(tempFile));
+        assertArrayEquals(expected, conn.getWrittenBytes());
+        assertEquals(expected.length, cb.getTotal());
+    }
+
+    @Test
+    public void testTransfer_URLConnection_To_File() throws Exception
+    {
+        byte[] payload = "payload from URL".getBytes("UTF-8");
+        TestURLConnection conn = new TestURLConnection(new ByteArrayInputStream(payload), null);
+        RecordingCallback cb = new RecordingCallback();
+
+        File outFile = File.createTempFile("IOUtilitiesTestOut", ".tmp");
+        outFile.deleteOnExit();
+
+        IOUtilities.transfer(conn, outFile, cb);
+
+        byte[] read = IOUtilities.inputStreamToBytes(new FileInputStream(outFile));
+        assertArrayEquals(payload, read);
+        assertEquals(payload.length, cb.getTotal());
+    }
+
+    @Test
+    public void testTransfer_InputStream_To_File() throws Exception
+    {
+        byte[] payload = "stream to file".getBytes("UTF-8");
+        RecordingCallback cb = new RecordingCallback();
+
+        File outFile = File.createTempFile("IOUtilitiesTestStream", ".tmp");
+        outFile.deleteOnExit();
+
+        try (InputStream in = new ByteArrayInputStream(payload))
+        {
+            IOUtilities.transfer(in, outFile, cb);
+        }
+
+        byte[] read = IOUtilities.inputStreamToBytes(new FileInputStream(outFile));
+        assertArrayEquals(payload, read);
+        assertEquals(payload.length, cb.getTotal());
+    }
+
+    @Test
+    public void testTransfer_InputStream_To_OutputStream_WithCallback() throws Exception
+    {
+        byte[] payload = "callback test".getBytes("UTF-8");
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        RecordingCallback cb = new RecordingCallback();
+
+        try (InputStream in = new ByteArrayInputStream(payload))
+        {
+            IOUtilities.transfer(in, out, cb);
+        }
+
+        assertArrayEquals(payload, out.toByteArray());
+        assertEquals(payload.length, cb.getTotal());
+    }
+
+    @Test
+    public void testTransfer_InputStream_To_ByteArray_Success() throws Exception
+    {
+        byte[] payload = "exact length".getBytes("UTF-8");
+        byte[] buffer = new byte[payload.length];
+        try (InputStream in = new ByteArrayInputStream(payload))
+        {
+            IOUtilities.transfer(in, buffer);
+        }
+        assertArrayEquals(payload, buffer);
+    }
+
+    @Test(expected = IOException.class)
+    public void testTransfer_InputStream_To_ByteArray_InsufficientData() throws Exception
+    {
+        byte[] payload = "short".getBytes("UTF-8");
+        byte[] buffer = new byte[payload.length + 5]; // larger than source
+        try (InputStream in = new ByteArrayInputStream(payload))
+        {
+            IOUtilities.transfer(in, buffer); // should throw IOException
+        }
+    }
+
+    @Test
+    public void testTransfer_InputStream_To_OutputStream_NoCallback() throws Exception
+    {
+        byte[] payload = "no callback".getBytes("UTF-8");
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+
+        try (InputStream in = new ByteArrayInputStream(payload))
+        {
+            IOUtilities.transfer(in, out);
+        }
+
+        assertArrayEquals(payload, out.toByteArray());
+    }
+
+    @Test
+    public void testTransfer_File_To_OutputStream() throws Exception
+    {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        IOUtilities.transfer(tempFile, out);
+        byte[] expected = IOUtilities.inputStreamToBytes(new FileInputStream(tempFile));
+        assertArrayEquals(expected, out.toByteArray());
+    }
+
+    @Test
+    public void testClose_NullAndNonNull_Closeable() throws Exception
+    {
+        // Null should be ignored, no exception
+        IOUtilities.close((Closeable) null);
+
+        // Non‑null Closeable that throws – we create a wrapper that throws on close
+        Closeable bad = new Closeable()
+        {
+            @Override
+            public void close() throws IOException
+            {
+                throw new IOException("forced");
+            }
+        };
+        // The method must swallow the exception
+        IOUtilities.close(bad);
+    }
+
+    @Test
+    public void testFlush_NullAndNonNull_Flushable() throws Exception
+    {
+        // Null – nothing happens
+        IOUtilities.flush((Flushable) null);
+
+        // Non‑null Flushable that throws
+        Flushable bad = new Flushable()
+        {
+            @Override
+            public void flush() throws IOException
+            {
+                throw new IOException("forced flush");
+            }
+        };
+        IOUtilities.flush(bad); // should swallow
+    }
+
+    @Test
+    public void testInputStreamToBytes_Normal() throws Exception
+    {
+        byte[] payload = "stream to bytes".getBytes("UTF-8");
+        byte[] result = IOUtilities.inputStreamToBytes(new ByteArrayInputStream(payload));
+        assertArrayEquals(payload, result);
+    }
+
+    @Test
+    public void testInputStreamToBytes_OnErrorReturnsNull() throws Exception
+    {
+        InputStream errorStream = new InputStream()
+        {
+            @Override
+            public int read() throws IOException
+            {
+                throw new IOException("forced read error");
+            }
+        };
+        assertNull(IOUtilities.inputStreamToBytes(errorStream));
+    }
+
+    @Test
+    public void testTransfer_URLConnection_WithByteArray() throws Exception
+    {
+        byte[] payload = "urlconnection bytes".getBytes("UTF-8");
+        TestURLConnection conn = new TestURLConnection(null, null);
+        IOUtilities.transfer(conn, payload);
+        assertArrayEquals(payload, conn.getWrittenBytes());
+    }
+
+    @Test
+    public void testCompressAndUncompress_RoundTrip() throws Exception
+    {
+        byte[] original = new byte[1024];
+        for (int i = 0; i < original.length; i++) original[i] = (byte) (i % 256);
+
+        byte[] compressed = IOUtilities.compressBytes(original);
+        assertTrue("Compressed data should be smaller than original", compressed.length < original.length);
+
+        byte[] uncompressed = IOUtilities.uncompressBytes(compressed);
+        assertArrayEquals(original, uncompressed);
+    }
+
+    @Test
+    public void testCompressBytes_OffsetAndLength() throws Exception
+    {
+        byte[] source = "0123456789ABCDEF".getBytes("UTF-8");
+        // compress only the middle 8 bytes ("456789AB")
+        byte[] compressed = IOUtilities.compressBytes(source, 4, 8);
+        byte[] uncompressed = IOUtilities.uncompressBytes(compressed);
+        assertArrayEquals("456789AB".getBytes("UTF-8"), uncompressed);
+    }
+
+    @Test
+    public void testUncompressBytes_NonGzippedReturnsInput() throws Exception
+    {
+        byte[] data = "plain not gzipped".getBytes("UTF-8");
+        assertSame(data, IOUtilities.uncompressBytes(data));
+    }
+
+    @Test
+    public void testTransfer_CallbackCancellation() throws Exception
+    {
+        // Data larger than buffer to ensure multiple iterations
+        byte[] payload = new byte[IOUtilities.TRANSFER_BUFFER * 2];
+        Arrays.fill(payload, (byte) 'x');
+
+        RecordingCallback cb = new RecordingCallback()
+        {
+            @Override
+            public boolean isCancelled()
+            {
+                // Cancel after first chunk
+                return getTotal() >= IOUtilities.TRANSFER_BUFFER;
+            }
+        };
+
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        try (InputStream in = new ByteArrayInputStream(payload))
+        {
+            IOUtilities.transfer(in, out, cb);
+        }
+
+        // Only one buffer worth of data should have been written
+        assertEquals(IOUtilities.TRANSFER_BUFFER, out.size());
+        assertEquals(IOUtilities.TRANSFER_BUFFER, cb.getTotal());
+    }
+
+    /* ---------------------------------------------------------------------- */
+    /*  3. EDGE‑CASE & EXCEPTION SCENARIOS                                    */
+    /* ---------------------------------------------------------------------- */
+
+    @Test(expected = NullPointerException.class)
+    public void testTransfer_NullInputStream_ThrowsNPE()
+    {
+        IOUtilities.transfer((InputStream) null, new ByteArrayOutputStream(), null);
+    }
+
+    @Test(expected = NullPointerException.class)
+    public void testTransfer_NullOutputStream_ThrowsNPE()
+    {
+        IOUtilities.transfer(new ByteArrayInputStream(new byte[0]), (OutputStream) null, null);
+    }
+
+    @Test
+    public void testClose_XMLStreamReader_NullAndException()
+    {
+        // Null – should be ignored
+        IOUtilities.close((XMLStreamReader) null);
+
+        // Reader that throws on close
+        XMLStreamReader bad = new XMLStreamReader()
+        {
+            @Override public void close() throws XMLStreamException { throw new XMLStreamException("forced"); }
+            // All other methods can be left empty (they are never called)
+            @Override public Object getProperty(String name) { return null; }
+            @Override public int next() { return 0; }
+            @Override public void require(int type, String namespace, String localName) {}
+            @Override public String getElementText() { return null; }
+            @Override public int nextTag() { return 0; }
+            @Override public boolean hasNext() { return false; }
+            @Override public void close() {}
+            @Override public String getNamespaceURI(String prefix) { return null; }
+            @Override public boolean isStartElement() { return false; }
+            @Override public boolean isEndElement() { return false; }
+            @Override public boolean isCharacters() { return false; }
+            @Override public boolean isWhiteSpace() { return false; }
+            @Override public String getLocalName() { return null; }
+            @Override public boolean hasName() { return false; }
+            @Override public String getPrefix() { return null; }
+            @Override public String getNamespaceURI() { return null; }
+            @Override public int getAttributeCount() { return 0; }
+            @Override public String getAttributeLocalName(int index) { return null; }
+            @Override public String getAttributePrefix(int index) { return null; }
+            @Override public String getAttributeNamespace(int index) { return null; }
+            @Override public String getAttributeType(int index) { return null; }
+            @Override public String getAttributeValue(int index) { return null; }
+            @Override public String getAttributeValue(String namespaceURI, String localName) { return null; }
+            @Override public boolean isAttributeSpecified(int index) { return false; }
+            @Override public int getNamespaceCount() { return 0; }
+            @Override public String getNamespacePrefix(int index) { return null; }
+            @Override public String getNamespaceURI(int index) { return null; }
+            @Override public int getEventType() { return 0; }
+            @Override public String getText() { return null; }
+            @Override public char[] getTextCharacters() { return new char[0]; }
+            @Override public int getTextCharacters(int sourceStart, char[] target, int targetStart, int length) { return 0; }
+            @Override public int getTextStart() { return 0; }
+            @Override public int getTextLength() { return 0; }
+            @Override public String getEncoding() { return null; }
+            @Override public boolean hasText() { return false; }
+            @Override public Location getLocation() { return null; }
+            @Override public QName getName() { return null; }
+            @Override public String getLocalName() { return null; }
+            @Override public boolean hasNext() { return false; }
+            @Override public void require(int type, String namespaceURI, String localName) throws XMLStreamException {}
+        };
+        // The method must swallow the exception
+        IOUtilities.close(bad);
+    }
+
+    @Test
+    public void testClose_XMLStreamWriter_NullAndException()
+    {
+        // Null – ignored
+        IOUtilities.close((XMLStreamWriter) null);
+
+        // Writer that throws on close
+        XMLStreamWriter bad = new XMLStreamWriter()
+        {
+            @Override public void close() throws XMLStreamException { throw new XMLStreamException("forced"); }
+            // Empty implementations for all other methods
+            @Override public void writeStartElement(String localName) {}
+            @Override public void writeStartElement(String namespaceURI, String localName) {}
+            @Override public void writeStartElement(String prefix, String localName, String namespaceURI) {}
+            @Override public void writeEmptyElement(String namespaceURI, String localName) {}
+            @Override public void writeEmptyElement(String prefix, String localName, String namespaceURI) {}
+            @Override public void writeEmptyElement(String localName) {}
+            @Override public void writeEndElement() {}
+            @Override public void writeEndDocument() {}
+            @Override public void close() {}
+            @Override public void flush() {}
+            @Override public void writeAttribute(String localName, String value) {}
+            @Override public void writeAttribute(String prefix, String namespaceURI, String localName, String value) {}
+            @Override public void writeAttribute(String namespaceURI, String localName, String value) {}
+            @Override public void writeNamespace(String prefix, String namespaceURI) {}
+            @Override public void writeDefaultNamespace(String namespaceURI) {}
+            @Override public void writeComment(String data) {}
+            @Override public void writeProcessingInstruction(String target) {}
+            @Override public void writeProcessingInstruction(String target, String data) {}
+            @Override public void writeCData(String data) {}
+            @Override public void writeDTD(String dtd) {}
+            @Override public void writeEntityRef(String name) {}
+            @Override public void writeStartDocument() {}
+            @Override public void writeStartDocument(String version) {}
+            @Override public void writeStartDocument(String encoding, String version) {}
+            @Override public void writeCharacters(String text) {}
+            @Override public void writeCharacters(char[] text, int start, int len) {}
+            @Override public String getPrefix(String uri) { return null; }
+            @Override public void setPrefix(String prefix, String uri) {}
+            @Override public void setDefaultNamespace(String uri) {}
+            @Override public void setNamespaceContext(NamespaceContext context) {}
+            @Override public NamespaceContext getNamespaceContext() { return null; }
+            @Override public Object getProperty(String name) { return null; }
+        };
+        IOUtilities.close(bad); // should swallow
+    }
+
+    @Test
+    public void testFlush_XMLStreamWriter_NullAndException()
+    {
+        // Null – ignored
+        IOUtilities.flush((XMLStreamWriter) null);
+
+        // Writer that throws on flush
+        XMLStreamWriter bad = new XMLStreamWriter()
+        {
+            @Override public void flush() throws XMLStreamException { throw new XMLStreamException("forced"); }
+            // All other methods empty
+            @Override public void close() {}
+            @Override public void writeStartElement(String localName) {}
+            @Override public void writeStartElement(String namespaceURI, String localName) {}
+            @Override public void writeStartElement(String prefix, String localName, String namespaceURI) {}
+            @Override public void writeEmptyElement(String namespaceURI, String localName) {}
+            @Override public void writeEmptyElement(String prefix, String localName, String namespaceURI) {}
+            @Override public void writeEmptyElement(String localName) {}
+            @Override public void writeEndElement() {}
+            @Override public void writeEndDocument() {}
+            @Override public void writeAttribute(String localName, String value) {}
+            @Override public void writeAttribute(String prefix, String namespaceURI, String localName, String value) {}
+            @Override public void writeAttribute(String namespaceURI, String localName, String value) {}
+            @Override public void writeNamespace(String prefix, String namespaceURI) {}
+            @Override public void writeDefaultNamespace(String namespaceURI) {}
+            @Override public void writeComment(String data) {}
+            @Override public void writeProcessingInstruction(String target) {}
+            @Override public void writeProcessingInstruction(String target, String data) {}
+            @Override public void writeCData(String data) {}
+            @Override public void writeDTD(String dtd) {}
+            @Override public void writeEntityRef(String name) {}
+            @Override public void writeStartDocument() {}
+            @Override public void writeStartDocument(String version) {}
+            @Override public void writeStartDocument(String encoding, String version) {}
+            @Override public void writeCharacters(String text) {}
+            @Override public void writeCharacters(char[] text, int start, int len) {}
+            @Override public String getPrefix(String uri) { return null; }
+            @Override public void setPrefix(String prefix, String uri) {}
+            @Override public void setDefaultNamespace(String uri) {}
+            @Override public void setNamespaceContext(NamespaceContext context) {}
+            @Override public NamespaceContext getNamespaceContext() { return null; }
+            @Override public Object getProperty(String name) { return null; }
+        };
+        IOUtilities.flush(bad); // should swallow
+    }
+
+    @Test
+    public void testCompressBytes_EmptyArray()
+    {
+        byte[] empty = new byte[0];
+        byte[] compressed = IOUtilities.compressBytes(empty);
+        // Compressing an empty array still yields a valid GZIP header (non‑null, length > 0)
+        assertNotNull(compressed);
+        assertTrue(compressed.length > 0);
+        // Uncompress should give back the empty array
+        assertArrayEquals(empty, IOUtilities.uncompressBytes(compressed));
+    }
+
+    @Test(expected = RuntimeException.class)
+    public void testCompressBytes_ThrowsRuntimeExceptionOnError()
+    {
+        // Force an error by passing a null array – the method does not guard against null,
+        // so a NullPointerException will be wrapped in RuntimeException.
+        IOUtilities.compressBytes(null);
+    }
+
+    @Test(expected = RuntimeException.class)
+    public void testUncompressBytes_ThrowsRuntimeExceptionOnCorruptData()
+    {
+        // Random non‑gzipped data that looks like a GZIP header will cause the internal
+        // GZIPInputStream to throw; the wrapper converts it to RuntimeException.
+        byte[] bogus = new byte[] { (byte)0x1f, (byte)0x8b, 0, 0, 0, 0, 0, 0, 0, 0 };
+        IOUtilities.uncompressBytes(bogus);
+    }
+}

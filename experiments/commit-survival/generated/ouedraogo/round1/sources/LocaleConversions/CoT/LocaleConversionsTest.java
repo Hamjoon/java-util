@@ -1,0 +1,165 @@
+package com.cedarsoftware.util.convert;
+import com.cedarsoftware.util.CompactLinkedMap;
+
+
+import org.junit.Test;
+import static org.junit.Assert.*;
+
+import java.util.Locale;
+import java.util.Map;
+
+/**
+ * JUnit 4 test suite for {@link LocaleConversions}.
+ *
+ * The test class resides in the same package as {@code LocaleConversions}
+ * so that it can access the package‑private static methods {@code toString}
+ * and {@code toMap}.
+ *
+ * The tests cover:
+ *   • Normal usage with various Locale configurations
+ *   • Null and invalid arguments (expecting NPE / CCE)
+ *   • Behaviour when the optional {@code Converter} argument is {@code null}
+ *   • Verification that {@code toMap} includes only non‑empty fields
+ */
+public class LocaleConversionsTest {
+
+    /* --------------------------------------------------------------------- */
+    /*  Helper – a no‑op Converter (the methods under test never use it)      */
+    /* --------------------------------------------------------------------- */
+    private static final Converter DUMMY_CONVERTER = null;   // allowed – not used
+
+    /* --------------------------------------------------------------------- */
+    /*  1.  Tests for toString(Object, Converter)                             */
+    /* --------------------------------------------------------------------- */
+
+    @Test
+    public void testToString_BasicLocale() {
+        Locale locale = Locale.US;                     // en-US
+        String result = LocaleConversions.toString(locale, DUMMY_CONVERTER);
+        assertEquals("en-US", result);
+    }
+
+    @Test
+    public void testToString_WithScriptAndVariant() {
+        Locale locale = new Locale.Builder()
+                .setLanguage("sr")
+                .setScript("Latn")
+                .setRegion("RS")
+                .setVariant("POSIX")
+                .build();                                 // sr-Latn-RS-POSIX
+        String result = LocaleConversions.toString(locale, DUMMY_CONVERTER);
+        // Locale.toLanguageTag normalises the order: language‑script‑region‑variant
+        assertEquals("sr-Latn-RS-POSIX", result);
+    }
+
+    @Test
+    public void testToString_NullConverterIsIgnored() {
+        Locale locale = Locale.CANADA_FRENCH;           // fr-CA
+        // The method does not touch the converter, so passing null must not fail
+        String result = LocaleConversions.toString(locale, null);
+        assertEquals("fr-CA", result);
+    }
+
+    @Test(expected = NullPointerException.class)
+    public void testToString_NullLocaleThrowsNPE() {
+        LocaleConversions.toString(null, DUMMY_CONVERTER);
+    }
+
+    @Test(expected = ClassCastException.class)
+    public void testToString_WrongSourceTypeThrowsCCE() {
+        // Passing a non‑Locale object forces the cast inside the method to fail
+        LocaleConversions.toString("not a locale", DUMMY_CONVERTER);
+    }
+
+    /* --------------------------------------------------------------------- */
+    /*  2.  Tests for toMap(Object, Converter)                               */
+    /* --------------------------------------------------------------------- */
+
+    @Test
+    public void testToMap_AllFieldsPresent() {
+        Locale locale = new Locale.Builder()
+                .setLanguage("en")
+                .setRegion("US")
+                .setScript("Latn")
+                .setVariant("POSIX")
+                .build();
+
+        Map<?, ?> map = LocaleConversions.toMap(locale, DUMMY_CONVERTER);
+        assertTrue(map instanceof CompactLinkedMap);   // implementation detail check
+
+        assertEquals(4, map.size());
+        assertEquals("en",   map.get(LANGUAGE));
+        assertEquals("US",   map.get(COUNTRY));
+        assertEquals("Latn", map.get(SCRIPT));
+        assertEquals("POSIX",map.get(VARIANT));
+    }
+
+    @Test
+    public void testToMap_OnlyLanguage() {
+        Locale locale = new Locale("es");               // language only
+        Map<?, ?> map = LocaleConversions.toMap(locale, DUMMY_CONVERTER);
+
+        assertEquals(1, map.size());
+        assertEquals("es", map.get(LANGUAGE));
+        assertFalse(map.containsKey(COUNTRY));
+        assertFalse(map.containsKey(SCRIPT));
+        assertFalse(map.containsKey(VARIANT));
+    }
+
+    @Test
+    public void testToMap_EmptyCountryScriptVariantAreOmitted() {
+        // Builder with empty strings for optional parts
+        Locale locale = new Locale.Builder()
+                .setLanguage("de")
+                .setRegion("")        // empty country
+                .setScript("")        // empty script
+                .setVariant("")       // empty variant
+                .build();
+
+        Map<?, ?> map = LocaleConversions.toMap(locale, DUMMY_CONVERTER);
+
+        assertEquals(1, map.size());
+        assertEquals("de", map.get(LANGUAGE));
+        assertFalse(map.containsKey(COUNTRY));
+        assertFalse(map.containsKey(SCRIPT));
+        assertFalse(map.containsKey(VARIANT));
+    }
+
+    @Test
+    public void testToMap_NullConverterIsIgnored() {
+        Locale locale = Locale.UK;                      // en-GB
+        Map<?, ?> map = LocaleConversions.toMap(locale, null);
+        assertEquals(2, map.size());
+        assertEquals("en", map.get(LANGUAGE));
+        assertEquals("GB", map.get(COUNTRY));
+    }
+
+    @Test(expected = NullPointerException.class)
+    public void testToMap_NullLocaleThrowsNPE() {
+        LocaleConversions.toMap(null, DUMMY_CONVERTER);
+    }
+
+    @Test(expected = ClassCastException.class)
+    public void testToMap_WrongSourceTypeThrowsCCE() {
+        LocaleConversions.toMap(Integer.valueOf(42), DUMMY_CONVERTER);
+    }
+
+    /* --------------------------------------------------------------------- */
+    /*  3.  Additional edge‑case verification (optional but useful)          */
+    /* --------------------------------------------------------------------- */
+
+    @Test
+    public void testToMap_LocaleRootHasNoEntries() {
+        // Locale.ROOT has empty language, country, script and variant.
+        // According to the implementation, LANGUAGE will be an empty string,
+        // but StringUtilities.hasContent("") is false, so the map will be empty.
+        Map<?, ?> map = LocaleConversions.toMap(Locale.ROOT, DUMMY_CONVERTER);
+        assertTrue(map.isEmpty());
+    }
+
+    @Test
+    public void testToString_LocaleRootProducesEmptyString() {
+        String tag = LocaleConversions.toString(Locale.ROOT, DUMMY_CONVERTER);
+        assertEquals("", tag);
+    }
+}

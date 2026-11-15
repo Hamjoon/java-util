@@ -1,0 +1,136 @@
+package com.cedarsoftware.util.convert;
+
+import org.junit.Before;
+import org.junit.Test;
+
+import java.lang.reflect.Field;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
+import static org.junit.Assert.*;
+
+/**
+ * Unit tests for {@link DefaultConverterOptions}.
+ *
+ * The class under test only provides read‑only accessors for two internal
+ * {@link java.util.concurrent.ConcurrentHashMap} instances.  The tests therefore
+ * use reflection to manipulate the private maps directly and verify that the
+ * public getter methods expose the expected behaviour.
+ *
+ * All tests are written using JUnit 4.
+ */
+public class DefaultConverterOptionsTest {
+
+    private DefaultConverterOptions options;
+
+    @Before
+    public void setUp() {
+        options = new DefaultConverterOptions();
+    }
+
+    /**
+     * Verify that a newly constructed instance starts with empty option maps.
+     */
+    @Test
+    public void testConstructorInitialState() {
+        // custom options should be empty → getCustomOption returns null
+        assertNull("Custom option for an unknown key should be null",
+                options.getCustomOption("anyKey"));
+
+        // converter overrides map should be empty
+        Map<ConversionPair, Convert<?>> overrides = options.getConverterOverrides();
+        assertNotNull("Converter overrides map must never be null", overrides);
+        assertTrue("Converter overrides map should be empty on construction", overrides.isEmpty());
+    }
+
+    /**
+     * Helper that sets a value in the private {@code customOptions} map via reflection.
+     */
+    private void putCustomOption(String name, Object value) throws Exception {
+        Field field = DefaultConverterOptions.class.getDeclaredField("customOptions");
+        field.setAccessible(true);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> map = (Map<String, Object>) field.get(options);
+        map.put(name, value);
+    }
+
+    /**
+     * Verify that {@code getCustomOption} returns the value that was placed in the
+     * internal map (using reflection to insert the entry).
+     */
+    @Test
+    public void testGetCustomOptionReturnsStoredValue() throws Exception {
+        putCustomOption("stringKey", "stringValue");
+        putCustomOption("intKey", 42);
+
+        String retrievedString = options.getCustomOption("stringKey");
+        Integer retrievedInt = options.getCustomOption("intKey");
+
+        assertEquals("The stored String value should be returned unchanged", "stringValue", retrievedString);
+        assertEquals("The stored Integer value should be returned unchanged", Integer.valueOf(42), retrievedInt);
+    }
+
+    /**
+     * Verify that a missing custom option returns {@code null}.
+     */
+    @Test
+    public void testGetCustomOptionReturnsNullWhenMissing() {
+        assertNull("Missing custom option should yield null", options.getCustomOption("nonexistent"));
+    }
+
+    /**
+     * Verify that the map returned by {@code getConverterOverrides} is the actual
+     * internal map (i.e., mutable and the same instance on repeated calls).
+     */
+    @Test
+    public void testGetConverterOverridesIsMutableAndSingleton() throws Exception {
+        Map<ConversionPair, Convert<?>> firstCall = options.getConverterOverrides();
+        Map<ConversionPair, Convert<?>> secondCall = options.getConverterOverrides();
+
+        // The two calls must return the same instance
+        assertSame("Repeated calls must return the same map instance", firstCall, secondCall);
+
+        // Populate the map with a dummy entry
+        ConversionPair pair = createConversionPair(String.class, Integer.class);
+        Convert<Integer> dummyConvert = (from, converter) -> 123; // simple lambda implementation
+
+        firstCall.put(pair, dummyConvert);
+
+        // Verify that the entry is visible through the second reference
+        assertEquals("Map should contain exactly one entry after insertion", 1, secondCall.size());
+        assertTrue("Map must contain the inserted key", secondCall.containsKey(pair));
+        assertEquals("Stored Convert instance must be the same as the one inserted",
+                dummyConvert, secondCall.get(pair));
+    }
+
+    /**
+     * Verify that attempting to put a {@code null} key into the converter‑overrides
+     * map results in a {@link NullPointerException}, mirroring the behaviour of
+     * {@link ConcurrentHashMap}.
+     */
+    @Test(expected = NullPointerException.class)
+    public void testConverterOverridesRejectsNullKey() {
+        Map<ConversionPair, Convert<?>> overrides = options.getConverterOverrides();
+        overrides.put(null, (from, converter) -> null);
+    }
+
+    /**
+     * Utility method that creates a {@link ConversionPair} instance via reflection.
+     * The library does not expose a public constructor, but the class is {@code final}
+     * and typically provides a two‑argument constructor (source, target).  If such a
+     * constructor is absent, the test will fail with a clear message.
+     */
+    private ConversionPair createConversionPair(Class<?> source, Class<?> target) throws Exception {
+        // Try to locate a (Class, Class) constructor
+        for (java.lang.reflect.Constructor<?> ctor : ConversionPair.class.getDeclaredConstructors()) {
+            Class<?>[] params = ctor.getParameterTypes();
+            if (params.length == 2 && params[0] == Class.class && params[1] == Class.class) {
+                ctor.setAccessible(true);
+                return (ConversionPair) ctor.newInstance(source, target);
+            }
+        }
+        // If we reach this point, the expected constructor does not exist.
+        throw new IllegalStateException("Unable to instantiate ConversionPair via reflection. " +
+                "Expected a (Class, Class) constructor.");
+    }
+}

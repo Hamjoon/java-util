@@ -1,0 +1,302 @@
+index,sha,date,subject,evaluated,dev_alive,dev_lost,ktester_alive,ktester_lost,ouedraogo_alive,ouedraogo_lost
+0,a85c604f3b4f833d98942255fc97c758a3879b9c,2024-10-17T09:38:59-04:00,t = 2.18.0,yes,1185,0,2688,0,3403,0
+1,3388d038184156c450f1d9729a11f01ecb5320e0,2024-11-29T15:22:12-05:00,Converter - code cleanup and updated Javadoc,yes,1185,0,2688,0,3402,1
+2,0e99ae0ef784f1c4998394f4f6fb10ace603540a,2024-12-02T03:15:38-05:00,"Converter now supports Collection, Array, and EnumSet conversions, including multiple dimension support, between collections of primitives, primitive wrappers, Date, Time, java.time.Temporal, the same set of base conversions that existed, are now supported in all possible way that I can think of. I'm sure I will hear from the Internet about other opportunities.",yes,1184,1,2688,0,3402,0
+3,0623d1c56c034de583bab90aac2b407b2aed10e8,2024-12-02T03:17:39-05:00,updated change log,no,1184,0,2688,0,3402,0
+4,b4ca397ce505bbdb02efddf778a33a4a37fe3e10,2024-12-02T22:33:06-05:00,Concurrency related tests are now only run during deploy phase.,yes,1184,0,2688,0,3402,0
+5,a466f6e646460c16a9bf5d227bf51efdc5c3f45e,2024-12-02T23:08:20-05:00,"Improved performance of Convert by no longer requiring creating of a ""pair"" Map.Entry instance for lookup in the CONVERSION_DB and USER_DB.",yes,1184,0,2688,0,3352,50
+6,065b32c7cf6e41f8e04c3dcad079a2b1316964b7,2024-12-02T23:48:01-05:00,Opened more tests to EnabledIf instead of Disabled. These can be run with -DperformRelease=true (whether you are doing an install or a deploy),yes,1183,1,2688,0,3352,0
+7,b28603fb6a5cfff283b98f28531b70ae36fa629d,2024-12-03T00:10:42-05:00,Added remaining Cedar Software Sets,yes,1183,0,2688,0,3352,0
+8,6a9e43731a5d0a0120d971e9ddb9408356b6ddcb,2024-12-03T01:42:17-05:00,"- Converter: performance improvements (no object creation when pairing keys) and improved scoring algorithm to find conversion pair that has the least distance in total for the source/target items. - UniqueIdGenerator - better approach to guarantee monotonically increase numbers and also supports a clock that may be been adjusted backward.  More supported added for cluster environments to identify unique node/pod (last component of it). Also fixed rate but possible non-monotonically increasing ID in rare race-condition with LinkedHashMap eviction. No longer maintains last 1000 or last 10,000 ids.",yes,1183,0,2679,9,3327,25
+9,a2dcc03abd7a0f386c85e7d93e33a25adeba3d9a,2024-12-03T02:21:16-05:00,Opened more tests to EnabledIf instead of Disabled. These can be run with -DperformRelease=true (whether you are doing an install or a deploy),yes,1183,0,2679,0,3324,3
+10,612aa4c21bcf303278a4cdc3c222f6b95ea62123,2024-12-03T07:45:58-05:00,"Added tests that prove that multiple dimensional collections can be converted to multiple dimensional arrays, and multiple dimensional arrays can be converted to multiple dimension collections",yes,1183,0,2679,0,3324,0
+11,3df008a7034f02c0d9bef33dcf757b7b911014c6,2024-12-07T10:49:10-05:00,"- Adding more Javadoc - CaseInsensitiveMap, additional capabilities being added for the keySet() and entrySet() - toArray. Also may add the computeIfPresnet, etc. APIs to the CaseInsenstiveMap as well.",yes,1107,76,2679,0,3283,41
+12,2401f73c232dbbe4227f56ec64d5c9d8ddcc4e64,2024-12-07T15:50:53-05:00,"CaseInsensitiveMap - when constructing from other Maps, the determineBaseMap capability supports many more maps, still defaults to LinkedHashMap, and allows the entire registry of Map types to be loaded (as a public API).  In addition validation checks are performed to prevent IdentityHashMap as a source, as well as to ensure the orderings of the defined entries are from specific to more general. - Lots of new tests added, 100% class, method, line, and branch coverage now.",yes,1107,0,2679,0,3283,0
+13,712cede8dbe5830d6daf334fea6afd1a4348bbf6,2024-12-08T08:38:26-05:00,- 100% code coverage on CaseInsensitiveMap and Javadoc at 100% - Small cache used for creating/reusing CaseInsenstiveStrings.,yes,1107,0,2679,0,3283,0
+14,0ae0d8b7d0a8965abd617b2b6c36bf483acfa1af,2024-12-08T19:35:23-05:00,- Renamed tests to follow modern naming convention. - Added tests that directly test MapConversion,yes,1107,0,2679,0,3283,0
+15,8a6a69247d44339c1465bbf9215bd14d2f266632,2024-12-14T11:54:46-05:00,Significant update to allow wrapped collection types to be supported.  Beginning removal of Sealed* as that will no longer be needed now that we support Unmodifiable* wrappers.,yes,1107,0,2679,0,3283,0
+16,69fba9a6a2b82d9b7c0075000546e46879c0bf96,2024-12-14T14:10:35-05:00,"isConversionSupportedFor() and isDirectionConversionSupportedFor() updated to be more accurate, looking into array component types",yes,1107,0,2679,0,3283,0
+17,dbaf7329e9b827a5d98df4972df08f0934f97c54,2024-12-14T15:35:10-05:00,"- Deprecated Sealable* - Converter now accurately says whether a Collection, Array, or EnumSet conversion is supported.",yes,1107,0,2678,1,3283,0
+18,b986072f226e0994490bb305a9fe71b3c09f75e3,2024-12-15T10:59:15-05:00,- recursive unmodifiability and synchronize on Collections when multidimensional copied - CollectionUtilities beefed up to handle all the wrapper types (wraps with most correct wrapper) - Massive Javadoc update,yes,842,265,2677,1,3264,19
+19,9414db19aa2cce5bb626d4cb26138a15d6df8d08,2024-12-15T13:55:25-05:00,"- CompactMap has new factory constructor methods so that no subclassing of CompactMap is necessary to support alternative behaviors (compactSize, cpaacity, case-sensitivity, Map type to use, source Map, usage of copying iterators, single-key setting) - Starting to break-out put/get so that it will honor ordering-based Maps.",yes,842,0,2677,0,3264,0
+20,ad7a8ddb641e2494077827f37a22b5d75472cd17,2024-12-15T15:20:45-05:00,"- CompactMap has new factory constructor methods so that no subclassing of CompactMap is necessary to support alternative behaviors (compactSize, cpaacity, case-sensitivity, Map type to use, source Map, usage of copying iterators, single-key setting) - Starting to break-out put/get so that it will honor ordering-based Maps.",yes,842,0,2677,0,3264,0
+21,9d194b417dc1758a7cd2f3a68025d1cfb9f6ff75,2024-12-15T16:15:06-05:00,"CompactMap now handling ordering - natural order, sorted, reverse sorted, and unordered",yes,842,0,2677,0,3264,0
+22,6171851946993d307be78fe98be896abd085a0e8,2024-12-15T17:00:21-05:00,"CompactMap - case-sensitive flag fully honored when no comparator set.  If comparator set, then it is ignored. CompactMap - documentation for class and newMap fully blown out.",yes,842,0,2677,0,3264,0
+23,c28c196db1297a796f1d4095625cd29ecd960fd7,2024-12-15T22:54:47-05:00,"- one test failing with 2, 3, 4 parameterized tests failing",no,842,0,2677,0,3264,0
+24,cb4680a38e7ea3f72ff58a54383d793c7f68602d,2024-12-16T01:48:39-05:00,almost there - struggling with sorting...,yes,842,0,2677,0,3264,0
+25,153248198726f1d713a2465af91e8eac3db495de,2024-12-16T09:52:34-05:00,- I have a working version of CompactMap with all tests passing (all java-util tests),yes,842,0,2677,0,3264,0
+26,e258f4416a511a6b5b6f27ec9b16c98a6608e873,2024-12-16T10:58:44-05:00,saving off correct copy before final optimizations,yes,842,0,2677,0,3264,0
+27,2aa15ba7c32f39a44ed30667bde0817ece9bd0d9,2024-12-16T12:18:19-05:00,- updated markdown,yes,842,0,2677,0,3264,0
+28,b61f64d1c5f3b1d03d35c0601d6aa5a7fcf93968,2024-12-16T17:53:21-05:00,Fixed some edge cases with respect to case insensitivity,yes,842,0,2677,0,3264,0
+29,9dd9bd4e253a9a9d884f432dff97cf8d4be1654f,2024-12-17T15:36:49-05:00,transitory state I may need to revert back too...,no,842,0,2677,0,3264,0
+30,eb07d68b4419e6fd1a89b30c7babf1a347f669ea,2024-12-21T10:13:42-05:00,Fighting backwards compatibility...,yes,842,0,2659,18,3238,26
+31,f70ee6cc92267a991309984a978b0e1e23ccd385,2024-12-21T20:13:35-05:00,"- ReflectionUtils massively updated (improved, complete adjustible LRU caching) and new API to easily get methods (deep or shallow) - CompactMap now supports old construction patterns while offering new improved factory methods. - CompactMap factory method approach will be replaced with Builder pattern before this is released.",yes,841,1,2655,4,3238,0
+32,9311a38fed5f09aa2256fc993b37a339f7cb12f3,2024-12-22T02:59:33-05:00,Added more tests to ensure old-style CompactMap construction works in all cases.  Fixed a couple of bugs it uncovered.,yes,841,0,2655,0,3238,0
+33,481844a24bebcd3004ba362ec9d5abfe147b0b75,2024-12-22T03:06:47-05:00,minor code fixes,yes,841,0,2655,0,3238,0
+34,90f44a2cbd32a47ff3d9348490f433f74cf53c39,2024-12-22T10:24:32-05:00,warning fixes,yes,841,0,2655,0,3238,0
+35,4cb7599cefc957390e994512323732693708562f,2024-12-22T11:08:40-05:00,"CompactMap now keeps items in insertion order, and only sorts the keys when changing to an iterator view, greatly improving performance.",yes,841,0,2655,0,3238,0
+36,786595a8573d1a3f3ab42cc6b3143ce19494aac2,2024-12-22T12:02:31-05:00,- remove() sped up dramatically - no sorting during remove.,yes,841,0,2655,0,3238,0
+37,da16a2dd3483ab02165686bdb534f0316318fdc6,2024-12-22T12:07:35-05:00,"- removed getNewMap(int size) as it was not always overwritten by users, leaving inconsistent behavior if they overwrote getNewMap() to return TreeMap(case insensitive, reverse order), but did not overwrite getNewMap(int size) to be the same way.  This improves correctness and avoids the customer running into hard-to-solve bugs.",yes,841,0,2652,3,3238,0
+38,e6e131b76837f70221799faf3ee69ad1d0d18a7e,2024-12-23T07:27:24-05:00,minor code changes for consistency,yes,841,0,2652,0,3238,0
+39,8ca990c0deed15a71c2967ec13d90a8c757ff4a1,2024-12-23T09:21:55-05:00,prep for conversion to builder pattern,yes,841,0,2652,0,3238,0
+40,47966775051a6e9bdf51cb26a0c68c8328805155,2024-12-23T13:49:40-05:00,CompactMap builder pattern added. More tests added. Adding more tests until code coverage is complete.,yes,841,0,2652,0,3238,0
+41,df9349d000e655833ac1cd070eadfa2c4fd3d5e8,2024-12-23T17:56:06-05:00,- migrating toward a solution that creates classes with static final constants so that users do not have to create subclasses.,yes,841,0,2652,0,3238,0
+42,96de9763b4b1dde91af47385a83c8ce7f2a5d9ae,2024-12-23T23:48:52-05:00,dynamically generating subclass for CompactMap based on options set.,yes,841,0,2652,0,3238,0
+43,37562c49c0dea42034e8eaf6859ecea09243511b,2024-12-24T03:10:52-05:00,"CompactMap automatic subclass generation for constants now complete.  CompactMap has one and only one member variable, 'val.'  And the class name will always be CompactMap$<options>",yes,841,0,2648,4,3237,1
+44,485c3d5a8370a2e56253ea51b3bf2a78d8e2b08f,2024-12-24T03:39:41-05:00,code cleanup,yes,841,0,2648,0,3237,0
+45,18dc9270773f04ea7cd436bc9a5e08f10389ca1b,2024-12-24T10:52:02-05:00,ThreadLocal removed. Temporary state.  New to remove getNewMap() calls making determinations about maptype.,yes,841,0,2648,0,3237,0
+46,86a8a062ba08f808b970bf1ca58e0759cd32b4f4,2024-12-24T11:41:34-05:00,- all tests passing - narrowing the gap between the legacy creation and new builder creation,yes,841,0,2648,0,3237,0
+47,6c1494a04633402f833df31955e629f36de933c3,2024-12-24T15:07:47-05:00,"Finally taking shape.  More documentation coming, should be near final version.",yes,841,0,2648,0,3237,0
+48,8709bbedc73bf11554db41d6dc10ed84e0bb173d,2024-12-24T15:59:53-05:00,minor code cleanup,yes,841,0,2648,0,3237,0
+49,0d21d2b725e2e411b5dd65b1a36c20a329c65dca,2024-12-24T17:33:24-05:00,adding more generality to differing Map types to be supported.,yes,841,0,2648,0,3237,0
+50,4fd9be0d99ec1d38a1d8833e1e24c15a199f1efd,2024-12-24T18:01:07-05:00,"- Legacy mode and new ""template"" mode are completely integrated.",yes,841,0,2648,0,3237,0
+51,9177e689dcf95c67214bd571c996e8d485d212cc,2024-12-24T18:50:51-05:00,"added better error handling when user specifies incorrect class instead of Map.  Also, can handle Map that does not take capacity.",yes,841,0,2648,0,3237,0
+52,d94cb34925384b1cfdbd98dce295d13a583929e9,2024-12-24T18:55:01-05:00,More readable template,yes,841,0,2648,0,3237,0
+53,91928dbcdb3096336e5b7f569203c4d1c0923a94,2024-12-24T21:34:51-05:00,- removed capacity. Should never have been added.  what was i thinking?,yes,841,0,2648,0,3237,0
+54,005c7f1ee28f3a4c89c2ef5c2da7672411e79653,2024-12-24T23:21:02-05:00,Beefing up Javadoc,yes,841,0,2648,0,3237,0
+55,351c7519a1ff448ec1b7456b6705ccab479d4f7e,2024-12-25T01:04:08-05:00,- Further blow-out of Javadoc - CsaeInsensitiveMap's wrapped Map maintained.,yes,841,0,2648,0,3237,0
+56,6415051a7c835939e3b051a1270672c4edce9c2b,2024-12-25T01:50:02-05:00,more javadoc updates,yes,841,0,2648,0,3237,0
+57,5a470275a981b4cb82011f671e83fec8815f5244,2024-12-25T02:03:15-05:00,"added more javadoc, explaining ""type witness"" syntax a little",yes,841,0,2648,0,3237,0
+58,afef1bc61eae6d7bf5ab89f09ec349811637eab6,2024-12-25T08:51:13-05:00,updated JAvadocs further...,yes,841,0,2648,0,3237,0
+59,2296adc2f1b44cb276a9b2173d8b5c839398b1f9,2024-12-25T10:07:17-05:00,- finished javadocs,yes,841,0,2648,0,3237,0
+60,1fd02d506ccd26f41723143ea49f9afb768c2160,2024-12-25T23:41:51-05:00,- reduce API surface area - Use better approach to get classLoader,yes,841,0,2648,0,3237,0
+61,871de91036fb85ebbd8593a7d3f556b406354400,2024-12-27T12:00:10-05:00,DeepEquals breadcrumb trails,yes,841,0,2648,0,3233,4
+62,20b4d287eeb51c57e2651ba3b2fc18bf97cb86d8,2024-12-27T12:45:48-05:00,deep equals breadcrumb gen in progress...,yes,841,0,2648,0,3233,0
+63,3b94d75b5de0abfd31bd4b51596817e84d921836,2024-12-28T09:15:35-05:00,- bread crumb output further refined. - Improved stack handling in deepEquals(),yes,841,0,2648,0,3141,92
+64,566479c0682873e113f9efab86b058ad3e2ddc24,2024-12-28T12:43:32-05:00,formatting deepEquals differences getting much better...,yes,841,0,2648,0,3141,0
+65,fb9aee2e7126d57fbbb0e3251c82a2e5b6fd08cc,2024-12-28T15:21:25-05:00,- working out formatting delta issues...,yes,841,0,2648,0,3141,0
+66,f3f6237cb82e6f944f630e83240469acdd5d6df7,2024-12-28T22:53:57-05:00,- Adding the concept of a container that contains an ItemToCompare,yes,841,0,2648,0,3141,0
+67,5f610cf34d485c114f34098f2271e144cae66b74,2024-12-29T19:12:02-05:00,improving DeepEquals breadcrumb output.,yes,841,0,2648,0,3141,0
+68,723fcf9f50c992f60d8fb46ab1aeee93ffb46649,2024-12-30T02:30:52-05:00,"- Formatting for deepEquals ""diff"" nearing completion.  Worrying about ""fonts"" and ""colors"" now (j/k) - ReflectionUtils is finished",yes,837,4,2648,0,3141,0
+69,a256a3fcd1d0dcae4ad14730d052ae206842ea27,2024-12-30T03:24:32-05:00,-perfecting deepEquals() format.  Just a few small items left.,yes,837,0,2648,0,3141,0
+70,8f4f02f03d949fc9a22c27ea7f5ebab5ca62118b,2024-12-30T03:43:09-05:00,"- formatting for deepEquals, further improved.",yes,837,0,2648,0,3141,0
+71,d46806128fae9030c70b56541926d37d6bdcc6dd,2024-12-30T12:35:22-05:00,"- improved comparison between simple types - use compareTo() == 0 if they are Comparable, before using .equals()",yes,837,0,2648,0,3141,0
+72,edffb560efe5cfdd5a93dec2c83c35c91f2e6b62,2024-12-30T15:37:26-05:00,- formatting improvements.,yes,837,0,2648,0,3141,0
+73,6eb71ba074c78b35b94b7208a40768529c2cfbbc,2024-12-31T17:50:36-05:00,- great headway made on deepEquals() difference output,yes,837,0,2648,0,3141,0
+74,a7740bcd19027ca6b12e1ef9958f9132eff2fa7c,2025-01-01T12:19:41-05:00,- formatting just about complete for deepEquals output differences.,yes,837,0,2648,0,3141,0
+75,1453bd3c965f2a60d7831199250df5febf33347a,2025-01-01T13:25:21-05:00,- formatting nearly complete,yes,837,0,2648,0,3141,0
+76,59d8e8ba6014d3d9f04f3c0bde6f287398ee7c8f,2025-01-01T13:56:42-05:00,- perfecting deepEquals diff output,yes,837,0,2648,0,3141,0
+77,b91f619446d318a3717901277319fd6e115fa1be,2025-01-01T14:34:13-05:00,"nearing ""art"" form... on diff formatting.",yes,837,0,2648,0,3141,0
+78,d05f9b6f30ae908c13c6df567d3c02cdf2d7c673,2025-01-01T15:18:48-05:00,- perfecting a little further,yes,837,0,2648,0,3141,0
+79,b838b09b1b13659873c822dd427610f1ce2b1046,2025-01-01T16:45:35-05:00,"- I think we have it. ""diff"" is now formatted consistently",yes,837,0,2648,0,3141,0
+80,7be943ae3cfdaa8942ffa016f14f977af49769ba,2025-01-02T09:28:19-05:00,- minor tweak to deepEquals output,yes,837,0,2648,0,3141,0
+81,90fc5198e1f2b9cf1554c58e0e16a22558457c0e,2025-01-03T17:05:22-05:00,- almost final final,yes,837,0,2648,0,3141,0
+82,864bf94682ad8af55fd82b39fd4e46cf57df2df9,2025-01-04T11:10:34-05:00,- working through support of key of map being map itself - no stackoverflow,yes,837,0,2648,0,3141,0
+83,61e6d2ad9476be6552d93fc3110c59e27746d339,2025-01-04T12:51:39-05:00,"- working, but with stackoverflow on Maps with Map instance as key",yes,837,0,2648,0,3141,0
+84,a8b1ade0643b2f981b6153c5cb8a80917ee67ebe,2025-01-04T16:01:34-05:00,- solved stackoverflow issue,yes,837,0,2648,0,3141,0
+85,557cafebd521ee3f7b16debf201a94c85d028c9c,2025-01-04T21:45:24-05:00,"- almost there, why .value?",yes,837,0,2648,0,3141,0
+86,a39c3bdf7fe164c19bf56211b423efdf70b7d7d9,2025-01-05T10:47:33-05:00,- difference type description now precise,yes,837,0,2648,0,3141,0
+87,ad8ad33cda3822c48d5f2aa42570fdea84bce591,2025-01-05T16:51:32-05:00,RC1,yes,837,0,2648,0,3141,0
+88,eaabf4de0e404f5becedd62e3a13e9fe274c8eda,2025-01-06T01:41:23-05:00,"DeepEquals ""diff"" breadcrumb output complete.",yes,837,0,2648,0,3141,0
+89,f47e9a56d483a7f6206e2a4db85c4e680f65df3a,2025-01-07T20:49:32-05:00,Deprecated CompactSet derivative classes. Use the builder pattern instead.,yes,835,2,2626,22,3110,31
+90,70785c070425addf8f7bb9378a1fe4d4d16dbe45,2025-01-07T22:33:30-05:00,"Nearing Release. minor clean ups, Javadoc",yes,835,0,2626,0,3061,49
+91,e38349435a9bf75db17594b6efd27bdee886e9f6,2025-01-08T19:53:36-05:00,"""newInstance"" brought over to ClassUtilities from json-io.",yes,835,0,2626,0,3061,0
+92,e91ae30d77c9685eac88782a59a6cffe5dd555a1,2025-01-08T20:46:02-05:00,- ReflectionUtils - increased flexibility in filtering fields,yes,835,0,2626,0,3061,0
+93,862e274a4d2ae7e6e4c1c48d387986588abfc62b,2025-01-08T23:13:57-05:00,working on documentation,no,835,0,2626,0,3061,0
+94,476c3ce9ffe4fb19d17f3ef863995f53bbd7e821,2025-01-09T01:03:34-05:00,"- CompactMap now properly caches the classes it generates. It also locks at a per classname level, increasing parallel execution. - More Javadoc updates.",yes,835,0,2626,0,3061,0
+95,f8c31b0abba8001b02d609ad8a974fb9f1796fdf,2025-01-09T01:06:25-05:00,Javadoc,no,835,0,2626,0,3061,0
+96,89c226eda86f4aab7833df5bdf750554cfa9e56a,2025-01-09T01:43:33-05:00,More tests and documentation added,yes,835,0,2626,0,3061,0
+97,33d0244c38a266f62e104d99e1747f6d21cbc7bd,2025-01-09T13:51:48-05:00,readme.md and userguide.md updates,no,835,0,2626,0,3061,0
+98,a7997d9bc5ba3911de00368b90f10c731fcaf338,2025-01-09T15:13:00-05:00,- doc updates,no,835,0,2626,0,3061,0
+99,840969eec184aef947a868a7f533dc4db5634bac,2025-01-09T15:13:51-05:00,doc updates,no,835,0,2626,0,3061,0
+100,8d093eaaaecbe7ef1a6fb1b7fd39a3e5853b8ecc,2025-01-10T08:19:45-05:00,doc updates,no,835,0,2626,0,3061,0
+101,fe2b19a518436b9c00223d324a1bb61943701f6d,2025-01-10T18:47:51-05:00,markdown updates,yes,834,1,2620,6,3051,10
+102,2fed01b330c9f43185dccdf5de5e126068f1f8f7,2025-01-11T09:01:58-05:00,- markdown updates - Better caching in Converter`,yes,834,0,2620,0,3051,0
+103,2ea4c302bef4c28c86b7c8222af540c8b44dbdb5,2025-01-11T09:51:11-05:00,More Javadoc and userguide.md updates,yes,834,0,2620,0,3051,0
+104,bd649c91165c2bfeaec86fbc366bb7fa46807860,2025-01-11T10:46:57-05:00,userguide.md and Javadoc updates,yes,834,0,2620,0,3051,0
+105,59881f32d74be37145c5662abfffa811586ebf0f,2025-01-11T11:17:29-05:00,Updated Javadoc and userguide.md,yes,834,0,2620,0,3051,0
+106,244c281ba0c692be0a03cd5b43dc0cf458330ca4,2025-01-11T11:51:31-05:00,Javadoc and userguide.md updates,yes,834,0,2619,1,3051,0
+107,ffb7cd63b02006da5335c1e6ec29fa1f31cb5931,2025-01-11T12:37:15-05:00,Useful SystemUtilities added. Javadoc and userguide.md added,yes,834,0,2619,0,3050,1
+108,e711ac339b9f740278f4c1b9948121b27c8fcc17,2025-01-11T13:01:06-05:00,markdown updates,no,834,0,2619,0,3050,0
+109,cd7e387c7c0d90a1fb1fb0399d3627250460eab2,2025-01-11T14:47:51-05:00,"Traverse now ""offers"" all graph node fields to the visitor",yes,834,0,2619,0,3050,0
+110,abd508dbf921c866a88d8b02853395fee29b5966,2025-01-11T14:54:37-05:00,updated traverser userguide entry,no,834,0,2619,0,3050,0
+111,b9f34792fb7884b297777e1bf3858e8288906887,2025-01-11T16:08:42-05:00,too aggressive on gzip guaging,yes,834,0,2619,0,3050,0
+112,292a15a763513419ee1677fb5eb3c23bf2010a0f,2025-01-11T22:23:53-05:00,- More effort into matching constructors to arguments in newInstance(). - More effort when trying to create an Exception from a Map.,yes,834,0,2619,0,3050,0
+113,d7f1acece19137fe66e26ae7b822eac5f1fc3cf2,2025-01-13T13:02:40-05:00,"- Added ReflectionUtils method to get all constructors, reusing existing construtor cache - ClassUtilities does not attempt to instantiate abstract classes - ClassUtilities added MethodHandle (JDK 8) to the no-no list.  VarHandle is Java 9+",yes,834,0,2619,0,3050,0
+114,ddd898838c565e357d53d52e3b784bf095d5bc76,2025-01-13T15:00:38-05:00,Updated DeepEquals userguide.md,no,834,0,2619,0,3050,0
+115,af656488ab72945ec685783ffeef4d1848b8c472,2025-01-13T15:47:06-05:00,updated userguide.md,no,834,0,2619,0,3050,0
+116,b41770294ae2f0f84e620f95e43ac338124cdceb,2025-01-13T17:03:56-05:00,updated deepequals userguide.md,no,834,0,2619,0,3050,0
+117,ec1eff423fc53f8aca1b3fcc4774f7908f6b9643,2025-01-13T21:02:28-05:00,- use computeIfAbsent when caching constructors,yes,834,0,2619,0,3050,0
+118,7f504e5a45cf928fa81bb2b2d729355ec521a55c,2025-01-13T22:17:48-05:00,"- ReflectionUtils uses computeIfAbsent() style caching for all of it's cached items, ensuring that one instance only, is ever handed out from a cache. No race conditions, less ""heapy"" - Moved Sealable* back to json-io",yes,834,0,2619,0,3050,0
+119,0873fa2d713ff13ebafcd603e5cf4553ca93fe2b,2025-01-13T22:51:09-05:00,- 3.0.0 Releae candidate 1,no,834,0,2619,0,3050,0
+120,6f6ee162421ea72d84f0adcf94cec60ac399322a,2025-01-14T22:45:03-05:00,readying for release,yes,834,0,2619,0,3050,0
+121,99e52a5b845fd52a896096dff6c981517cdf4440,2025-01-14T23:02:27-05:00,minor Javadoc and userguide updates,yes,834,0,2619,0,3050,0
+122,eebd5d63394599e0ffb87af9acc6cb93d82e7e69,2025-01-15T18:01:29-05:00,Removed references to CompactLinkedMapp,yes,834,0,2615,4,3031,19
+123,4be373a0b1651af8d0944ab2236f49da9509400a,2025-01-20T15:59:37-05:00,"> * [ClassUtilities](userguide.md#classutilities) adds >   * `Set<Class<?>> findLowestCommonSupertypes(Class<?> a, Class<?> b)` >     * which returns the lowest common anscestor(s) of two classes, excluding `Object.class.`  This is useful for finding the common ancestor of two classes that are not related by inheritance.  Generally, executes in O(n log n) - uses sort internally.  If more than one exists, you can filter the returned Set as you please, favoring classes, interfaces, etc. >   * `Class<?> findLowestCommonSupertype(Class<?> a, Class<?> b)` >     * which is a convenience method that calls the above method and then returns the first one in the Set or null. >   * `boolean haveCommonAncestor(Class<?> a, Class<?> b)` >     * which returns true if the two classes have a common ancestor (excluding `Object.class`). >   * `Set<Class<?>> getAllSupertypes(Class<?> clazz)` >     * which returns all superclasses and interfaces of a class, including itself.  This is useful for finding all the classes and interfaces that a class implements or extends. > * Moved `Sealable*` test cases to json-io project. > * Removed remaining usages of deprecated `CompactLinkedMap.`",yes,756,78,2079,536,2633,398
+124,0c909d9a3531bd579d6a0363ca46df588467351f,2025-01-21T21:14:31-05:00,"- Improved Timestamp conversions - Added test that verifies all conversions work, not only directly, but via json-io (test not yet enabled, but works locally)",yes,756,0,2079,0,2633,0
+125,90f7195ef4bdd8adf6dac1621bc41108f8d01d42,2025-01-21T21:20:10-05:00,3.0.2 release,yes,756,0,2079,0,2633,0
+126,08968bbe2b231499f822a1855db914aef2cff554,2025-01-24T20:35:38-05:00,"Timestamp outputs reliably in fully qualified ISO 8601 format (in UTC - ""Z""), or it can read from epochMillis and optional nanos if passed that way to Converter.",yes,755,1,2079,0,2633,0
+127,3cbe873a555c51cbcf6b387dd76d83079a80f8bb,2025-01-25T01:03:35-05:00,"Date and sql Date conversions are no longer ambiguous on timezone.  The reader side (Map to Date, Map to sql date) always ensure timezone is included. If it is not specified (older JSON format) then it will use the system's timezone, which is what it did in the past.",yes,755,0,2077,2,2633,0
+128,0b8bf6cac77bd74a46fd8f5823fd7d7500af94c9,2025-01-25T01:07:39-05:00,updated version numbers,no,755,0,2077,0,2633,0
+129,41891dc42086459138dfb452a2a5f84e4ef0327c,2025-01-25T14:43:19-05:00,"Date and sql Date conversions are no longer ambiguous on timezone.  The reader side (Map to Date, Map to sql date) always ensure timezone is included. If it is not specified (older JSON format) then it will use the system's timezone, which is what it did in the past.",yes,755,0,2077,0,2633,0
+130,16ca31a77afcbd2d6f1eb04ee55bf2af36f614ba,2025-01-26T00:49:28-05:00,Cleaning up Calendar conversions and strengthening DateUtilities.parseDate,yes,755,0,2059,18,2633,0
+131,9b1765254637d9848906280524d52de70bc01f4c,2025-01-31T23:39:49-05:00,"Dates, java.util.Dates, and Timestamps now written out in String form by default.",yes,754,1,2058,1,2630,3
+132,fe9c8936edc4c75e853b6b767dcb7c26bd5ff202,2025-02-01T20:01:20-05:00,"LocalDateTime, LocalDate, LocalTime, ZonedDateTime, OffsetDateTime all now use single String value for representation.",yes,754,0,2039,19,2630,0
+133,c6999fe73c121e84f8eb8efb47b0af8bd751603e,2025-02-02T17:18:56-05:00,"- Added support for more number values to OffsetTime - Ensured no tests use Timestamp before year 0001 as it is not supported by java.sql.Timestamp - Ensured no tests use Calendar before year 0002, as it is not supported by Java Calendar.",yes,754,0,2028,11,2616,14
+134,157df54e0309824f23769e52eb9ab5b962092952,2025-02-03T01:44:00-05:00,"- All older Java date-time classes and newer temporal classes, output in ""one field"" when in Map form. - Many, many new tests added - Timezone handling improved - ZonedDateTime ISO_ZONE_DATE_TIME format used consistently and round trips. - GMT time supported but turns into Etc/GMT internally.",yes,754,0,2016,12,2571,45
+135,0895dfce75261c0b0bb3a8ed4e27e5e7edc25446,2025-02-08T12:03:24-05:00,"- Added Currency and Pattern to Converter. - All Date-time types can be converted to Year, YearMonth, and MonthDay - java.sql.Date is treated as a true ""date"" with no surprises, like a birth date.",yes,754,0,2014,2,2550,21
+136,ad59b634a76a01afb1ab0a52732870fb1e614ab3,2025-02-08T12:42:17-05:00,"Updated readme, pom.xml, changelog.md",yes,754,0,2014,0,2550,0
+137,4cf4bef3e93b89a041c0400bbfef537cc1b56616,2025-02-08T12:42:52-05:00,version 3.0.3,yes,754,0,2014,0,2550,0
+138,6a6601a4f7fd5d82b4ed3b49084d12801aafa15f,2025-02-08T12:43:45-05:00,Disabled tests that need a newer version of json-io (they will be coming online soon),no,754,0,2014,0,2550,0
+139,d92516328cee3adee7285fadcc87b90f02e92537,2025-02-08T12:52:50-05:00,updated readme version,no,754,0,2014,0,2550,0
+140,60da99ec66c9c046b154231c6501b8c606270ac9,2025-02-08T13:11:40-05:00,updated pom.xml depedencies (assertj),yes,754,0,2014,0,2550,0
+141,2c78618fc56c2534aeabe53efd27301fb229c0f6,2025-02-08T20:20:41-05:00,"no trailing 0's on BigDecimal, more tests, removed redundant tests.",yes,754,0,2014,0,2550,0
+142,3083a47a4fe7daedf1a74b25390baeacfcbfda84,2025-02-08T20:24:04-05:00,minor doc update,no,754,0,2014,0,2550,0
+143,4264dd673407dd96add6e10328479ca50efd8116,2025-02-22T10:06:49-05:00,TypeUtilities added,yes,754,0,2010,4,2534,16
+144,6452b7cf54fe1c0c6088cbe5c9353d7eefbf4a5e,2025-02-22T10:25:12-05:00,TypeHolder added,yes,754,0,2010,0,2534,0
+145,c36f24e850cf6ef404d4321f1805822dfcdf5c03,2025-02-22T11:52:47-05:00,TypeHolder placed in json-io.,yes,754,0,2010,0,2534,0
+146,2817120dccaa0cfdb35eba7689b1a6d512875b72,2025-02-22T12:01:20-05:00,updated md files,no,754,0,2010,0,2534,0
+147,a1df12c56e0b0539f69bf97fb98b7dc40e261c28,2025-02-22T16:33:37-05:00,Making TypeUtilities more capable with a simpler API,yes,754,0,2010,0,2534,0
+148,3fc6369f60f8a279ff043429c14b88e0b6e9d762,2025-02-22T19:11:10-05:00,reducing TypeUtilities API (still has debug printlns in it),yes,754,0,2010,0,2534,0
+149,a8a128828ad632e953566c85e322a95253d45f84,2025-02-22T20:03:55-05:00,removed println's,yes,754,0,2010,0,2534,0
+150,520aa4730aab9395d0dacb7dfc04b1ddde4cfd6c,2025-02-22T20:05:01-05:00,removed one remaining println,yes,754,0,2010,0,2534,0
+151,75e88a176d0716f01b591ca6a6705a8cfcf1bc01,2025-02-23T00:55:08-05:00,Caching added to more reflective options,yes,754,0,2010,0,2534,0
+152,322fa9b18788e4d12c30582e8012a756665a680f,2025-02-23T02:23:50-05:00,"Caching improved on Converter, ClassUtilities, and TypeUtilities.",yes,754,0,2010,0,2534,0
+153,377a03b64bcb85d11fccd00add212379deebce80,2025-02-23T12:48:07-05:00,Minor performance tweaks,yes,754,0,2008,2,2528,6
+154,19a38f1b4e141f263068e63a05b5b9a6b83c6740,2025-02-23T14:06:13-05:00,updated userguide.md for TypeUtilities,no,754,0,2008,0,2528,0
+155,9aa1cea14a47543226e8cd87d70f54850b90606e,2025-02-23T14:30:42-05:00,Merge pull request #112 from kpartlow/kpartlow/fix-threading-issue,yes,754,0,2008,0,2528,0
+156,45e6abe6a91b5daff798dea3841f4cb1934da300,2025-02-23T14:35:23-05:00,Fixed threading issue (thread not being marked daemon.),yes,754,0,2008,0,2528,0
+157,bd8e7d5b7cfcc29523929702946f3c8cb10e5279,2025-02-23T18:31:35-05:00,Merge pull request #113 from kpartlow/kpartlow/cleanup-overrides-deprecated-java,yes,754,0,2008,0,2528,0
+158,dc9a4852ac3c07420132ce0b54a19cab67b1e1f8,2025-02-24T13:59:25-05:00,- Updated IOUtilities to use autoclose - Significant documentation updates on userguide,yes,753,1,2007,1,2528,0
+159,ed7f9f053903e81efdbee2972fed77c4408f66d6,2025-02-24T14:01:18-05:00,updated readme version,no,753,0,2007,0,2528,0
+160,e03e5e8c5777252f79eb0509925cf9137ae09618,2025-02-25T00:51:07-05:00,Merge pull request #114 from kpartlow/kpartlow/cleaning-up-warnings,yes,753,0,2006,1,2528,0
+161,0b8bdc077ef83ecb87c5e83dba056f3e651127c0,2025-02-25T00:59:37-05:00,Incorporated Ken's latest changes,yes,753,0,2006,0,2528,0
+162,991fa653743060504d3d644c07127b63cb187d7c,2025-02-25T01:02:17-05:00,Consolidated hex arrays,yes,753,0,2006,0,2528,0
+163,989aea8137ee78c3879e3e0ca25aae6aca9867b4,2025-02-26T00:25:08-05:00,- Performance improvements for object creation by improved constructor caching (cached in proper sorted order) - Last successfully used constructor is cached for performance improvement - newInstance() is now faster in my testing (almost 2x) - More parameter types supplied for argument matching when searching for constructor values to fill in.,yes,753,0,2006,0,2528,0
+164,c7687eb0c74453043b275d6e0fbd16c33452c33b,2025-02-26T00:40:14-05:00,code clean up on computeInheritanceDistance,yes,753,0,2006,0,2528,0
+165,8fbdbe994c1d19111bea64ec8a5ca1ebae17ca6d,2025-02-28T22:09:42-05:00,performance improvements,yes,753,0,2006,0,2528,0
+166,ae48554c7ed9ff46931433d5b0cce9f04150f0ff,2025-02-28T23:12:37-05:00,performance and cleanup,yes,753,0,2006,0,2528,0
+167,85fc4bea330c96cc6689a15f1e7eef0b0a01cdcc,2025-03-01T09:48:12-05:00,performance and cleanup,yes,753,0,2006,0,2528,0
+168,dde09f392e907ba12beec427b8b82a3ebf576b14,2025-03-01T13:49:15-05:00,performance and cleanup,yes,753,0,2006,0,2526,2
+169,9c2e5a968223227597f7a54e38a84f6dbc981903,2025-03-02T12:17:02-05:00,Added ClassValueSet and ClassValueMap. Tests forthcoming.,yes,753,0,2006,0,2526,0
+170,aa23a6687c0745dd84ebf788123d991fbec51b4b,2025-03-06T18:32:53-05:00,performance and cleanup,yes,753,0,2006,0,2522,4
+171,24e68f9254efc208634e7eb52f3c68ff5641303e,2025-03-06T21:58:10-05:00,performance and cleanup,yes,753,0,2006,0,2522,0
+172,3a04b6604f971cba952b9a06adb8310795a84b61,2025-03-06T22:29:00-05:00,performance and cleanup,no,753,0,2006,0,2522,0
+173,32aaff24f8d4eeb7909b86fa8bf85b74d283c26e,2025-03-06T22:43:44-05:00,updated version README.md,no,753,0,2006,0,2522,0
+174,68bb0e78f8da929e6bb71e53955a715e19451e3c,2025-03-06T22:56:39-05:00,updated to 3.1.1,yes,753,0,2006,0,2522,0
+175,6eb91be2ab01cea8106f8c9153652e015bc8de00,2025-03-08T20:05:16-05:00,Added more stringent tests for CompactMap,yes,753,0,2006,0,2522,0
+176,09c9c2a469559f235f35039a0914e0a60c3f6a7b,2025-03-09T13:20:26-04:00,"- getConfig() and withConfig() support for CompactMap and CompactSet - Tests added for getConfig() withConfig() - If a non-JDK Map is uses as the ""mapType"" it no longer has to have both a constructor that takes an int (initialSize) and a default constructor",yes,753,0,2006,0,2522,0
+177,d193eaf3e9bca7fa2627cb1bf86ca7b180352d47,2025-03-09T18:57:53-04:00,CompactMap and CompactSet now have getConfig() and withConfig() as another alternative for creation and getting config information - updated to 3.2.0,yes,753,0,2006,0,2522,0
+178,ef0d9363084fc8039ae59871574ea69c5d02496f,2025-03-09T19:06:06-04:00,deprecated shutdown api,yes,727,26,1914,92,2504,18
+179,d9aa09160abcc9e7dd908c307684d463569ec820,2025-03-09T20:11:02-04:00,improved comments in code,no,727,0,1914,0,2504,0
+180,ca6bbf650a79a9fa1b3fa45f10daa5f3936604da,2025-03-23T23:23:58-04:00,- Added back CompactMap/CompactSet specific subclasses to allow usage of common specialized CompactMaps/CompactSets without having to write specialized reader/writers. - ByteBuffer and CharBuffer converstions to/from Map added. - updated to use json-io 4.51.0 for testing - DEFAULT_FIELD_FILTER in ReflectionUtils made public.,yes,727,0,1910,4,2504,0
+181,a1c3f2801e60cae3e91318fce0cb8af16b4a5cc2,2025-03-23T23:28:48-04:00,Merge remote-tracking branch 'origin/master',yes,727,0,1910,0,2504,0
+182,37796bb4e2423509f6cb8e5fd3f7981cfabc2397,2025-03-24T01:47:53-04:00,"- updated markdown, version",no,727,0,1910,0,2504,0
+183,f48689be6410b28591cc54900f812866effab229,2025-03-24T02:06:06-04:00,improved userguide documentation on CompactSet/CompactMap regarding serialization tips,no,727,0,1910,0,2504,0
+184,57157886c910577dbe8511e8455f35525db3e1d6,2025-03-26T12:18:34-04:00,Merge pull request #116 from ozhelezniak-talend/ozhelezniak/fastwriter_int_write_fix,yes,727,0,1910,0,2503,1
+185,a6bb2d5a22f3a2380a97b0cedc5cb5359e2c01e8,2025-04-09T14:39:31-04:00,Sped up StringUtilities.hashCodeIgnoreCase by using ASCII trick when the current Locale represents a county that uses latin letters.,yes,727,0,1910,0,2503,0
+186,12dd50639889cfa737d22576d49ee599c59eefb3,2025-04-09T15:15:00-04:00,updated to 3.3.1,yes,727,0,1910,0,2503,0
+187,d94c84a2288566120d45873c4c62bede6d435fc0,2025-04-30T11:33:11-04:00,updated readme,no,727,0,1910,0,2503,0
+188,2f335e0877b3c9cc120b19f8d8b6caac94f4efb9,2025-05-04T14:55:57-04:00,JDK 24 compatibility added,yes,727,0,1910,0,2503,0
+189,8b99d4da5beb5832f37296e343c664bc6346cb9c,2025-05-04T21:30:21-04:00,"updated name of system API, added it to userguide.md",yes,727,0,1910,0,2503,0
+190,c980dee7f7c73cbe5303fb7bd13fdf0538d837aa,2025-05-04T21:31:37-04:00,updated changelog.md,no,727,0,1910,0,2503,0
+191,b520d27b0fd607caca9423d308baaa6d45c4bc38,2025-05-12T16:39:16-04:00,"LRUCache - added getCapacity() so you can tell how it was established. ReflectionUtils - swaping out caches is now atomic and guarantees the swapped in cache is a ConcurrentMap, LRUCache, and if not, wraps it in a synchronized map. - CaseInsensitiveMap - swapping out the cache is atomic, the CaseInsenstiveString comparison is slightly faster when the inbound String is a String (not a CseInsensitiveString) - compares hashes first, and finally the code was reduced by putting common check for CaseInsensitiveString() into a separate method.",yes,727,0,1910,0,2503,0
+192,c8f440afabce490cd5ba264834617ae910e15bf6,2025-05-21T08:42:45-04:00,Merge pull request #118 from jdereg/codex/find-and-fix-a-bug,yes,727,0,1910,0,2503,0
+193,e47d3705236f2d46961f261c6f20bf2c638aa46f,2025-05-26T11:26:10-04:00,converting groovy to java,yes,713,14,1893,17,2385,118
+194,21ed211092010666ea8746b602f844ec95c4255d,2025-05-26T11:45:05-04:00,Merge pull request #119 from jdereg/codex/fix-compactset-to-support-subclass-overriding-in-jre,yes,713,0,1893,0,2385,0
+195,56b1e0cf458fb22f66e039edc1b182e2e3a3be0d,2025-05-26T11:57:17-04:00,supporting all non-build() paths of CompactMap and CompactSet,yes,713,0,1893,0,2385,0
+196,5e66caad8351634d436e26dba8d6f96f66873520,2025-05-26T12:00:30-04:00,Merge pull request #120 from jdereg/codex/update-byteutilitiestest-with-new-assertions,no,713,0,1893,0,2385,0
+197,5a9515d067fb077394ac1d75d2d30a3e35066081,2025-05-26T12:01:51-04:00,Merge pull request #121 from jdereg/codex/edit-userguide.md-for-consistency,no,713,0,1893,0,2385,0
+198,d9ac285f0498812c5de712973186569f8ba50ba0,2025-05-26T12:02:33-04:00,Merge pull request #122 from jdereg/codex/fix-javadoc-typo-in-maputilities.java,yes,713,0,1893,0,2385,0
+199,1d22a579cf6a1f0997454c6430acf6110064ba9d,2025-05-26T12:03:32-04:00,Merge pull request #123 from jdereg/codex/update-fallback-stream-hashing-methods,yes,713,0,1893,0,2385,0
+200,d5e970955a55b8dda3e223aeaead3b223876a870,2025-05-26T12:21:14-04:00,Merge pull request #124 from jdereg/codex/fix-compactset-test-failures-and-improve-reflectionutils-wor,yes,713,0,1893,0,2385,0
+201,9a3d0e249d8a05f9a017a0d5e2cdddac4e91042a,2025-05-26T12:29:39-04:00,Merge pull request #125 from jdereg/codex/fix-assertion-failures-in-testlegacyreverse,yes,713,0,1893,0,2385,0
+202,00c23efa1bb98dc63352230fe62c27215f6f413d,2025-05-26T12:31:43-04:00,Merge pull request #126 from jdereg/codex/update-compactmap-docs-for-jdk/jre-warning,yes,713,0,1893,0,2385,0
+203,fd494dc7a3b6753061d6606efa82eedb08a47b89,2025-05-26T12:52:42-04:00,Merge pull request #127 from jdereg/codex/add-binary-search-support-in-compactmap,yes,713,0,1893,0,2385,0
+204,09dd9ee3264e814791038fb482f1e18761f37795,2025-05-26T13:01:48-04:00,Merge pull request #128 from jdereg/codex/fix-test-failures-after-binary-search-changes,yes,713,0,1893,0,2385,0
+205,4d2b3695e38b099a8f27f27fd8d78f3bca655a6e,2025-05-26T13:06:54-04:00,Merge pull request #129 from jdereg/codex/update-performance-characteristics-section-in-userguide.md,no,713,0,1893,0,2385,0
+206,8382cabf8fc7a9bcfd2b8ecf057583ca244ecd9d,2025-05-26T14:12:07-04:00,Merge pull request #130 from jdereg/codex/remove-quicksort-from-compactmap,no,713,0,1893,0,2385,0
+207,b411fccab0258cbe141984c1088d0289536aeee3,2025-05-26T14:31:53-04:00,Merge pull request #131 from jdereg/codex/update-compactsize-default-to-50-and-fix-docs,yes,713,0,1893,0,2385,0
+208,4bb2d35117351d31f4a0959cd7b8cdbae6b909f7,2025-05-26T14:55:14-04:00,"updated changelog.md, README.md, and userguide.md",no,713,0,1893,0,2385,0
+209,3072ed447b1d54e728b23414ab2c169bef4c0748,2025-05-26T14:58:51-04:00,Merge pull request #132 from jdereg/codex/update-compactset-documentation-with-jdk/jre-warning,no,713,0,1893,0,2385,0
+210,2b0fbb6cdb1d50a536b37bf31716573c4f356046,2025-05-26T15:01:43-04:00,"updated changelog.md, README.md, and userguide.md",no,713,0,1893,0,2385,0
+211,58158fa647fe9e50480cc785009b2d1ff7fc707f,2025-05-26T15:02:49-04:00,updated README.md version number,no,713,0,1893,0,2385,0
+212,af4c86d31d5ff0ea7734b43159a05f304e0e5827,2025-05-26T16:09:56-04:00,Merge pull request #133 from jdereg/codex/fix-unreliable-junit-test-due-to-cache-size,no,713,0,1893,0,2385,0
+213,de0b2f9182ce469f92f30f46cd8a0ad376c6d7b8,2025-05-27T19:30:41-04:00,Merge pull request #134 from jdereg/codex/add-javadoc-to-public-classes-and-methods,yes,713,0,1893,0,2385,0
+214,0bdd807608eefae86a4fbda160ef4d4661b9301c,2025-06-14T17:44:36-04:00,Merge pull request #137 from jdereg/codex/update-readme-and-changelog-with-osgi-info,no,713,0,1893,0,2385,0
+215,0dfe232b4a1257a77e85b1c8a1f268e18623378c,2025-06-14T18:09:47-04:00,Merge pull request #138 from jdereg/codex/update-resource-loading-and-documentation,yes,713,0,1893,0,2385,0
+216,90acf213b127822b4f91b1247a39f388f0227135,2025-06-14T18:33:13-04:00,Merge pull request #139 from jdereg/codex/update-decomposeunorderedcollection-method,yes,713,0,1893,0,2385,0
+217,1b6e12ae9fa288d7082dd34d954dcc3cf90a0389,2025-06-14T18:45:03-04:00,Merge pull request #140 from jdereg/codex/modify-replacecache-to-check-for-null-cache,yes,713,0,1893,0,2385,0
+218,92ba42efcfd45d8d4b28c4194de782de3555376e,2025-06-14T18:45:51-04:00,Merge pull request #141 from jdereg/codex/update-caseinsensitivemap-constructor,yes,713,0,1893,0,2385,0
+219,207df323f29661827e7d695fc80df2c062237d22,2025-06-14T18:46:50-04:00,Merge pull request #142 from jdereg/codex/correct-javadoc-typo-in-caseinsensitivestring,yes,713,0,1893,0,2385,0
+220,93f6236cf455be46c4a92e395343153e45fa1240,2025-06-14T18:48:25-04:00,Merge pull request #143 from jdereg/codex/change-stack-to-arraydeque-in-deepequals,yes,713,0,1893,0,2385,0
+221,28b82eeb7a4168e720e76660c44cf17a4addf33a,2025-06-14T19:04:16-04:00,Merge pull request #144 from jdereg/codex/correct-javadoc-or-implement-transition-logic,yes,713,0,1893,0,2385,0
+222,bded1609e25fd5908f4d4e09b56cc5e9ea33b6b6,2025-06-14T19:06:10-04:00,fixing docs and Java 8 issue,yes,713,0,1893,0,2385,0
+223,4631ca3a58082b4e0696d524bb0875cb789f2f97,2025-06-14T19:07:59-04:00,Merge pull request #145 from jdereg/codex/strengthen-validation-in-validateandfinalizeoptions,yes,713,0,1893,0,2385,0
+224,11575c0374bdff237b07b0006106fbdce12ea901,2025-06-14T19:09:30-04:00,Merge pull request #146 from jdereg/codex/update-putall-in-compactmap-for-efficiency,yes,713,0,1893,0,2385,0
+225,15f9acb391fe6934d20a4e1acc3dacf4e81f5663,2025-06-14T19:11:06-04:00,Merge pull request #147 from jdereg/codex/use-try-with-resources-for-file-managers,no,713,0,1893,0,2385,0
+226,f4cbffea702e43b897a83b035b231b968c3cca9d,2025-06-14T19:30:24-04:00,Merge pull request #148 from jdereg/codex/ensure-source-compatibility-with-jdk-1.8,no,713,0,1893,0,2385,0
+227,5c43e709dbd526f3593662dd5a97826bc6fc7f98,2025-06-14T19:51:37-04:00,Merge pull request #149 from jdereg/codex/update-concurrentset-constructors-for-generics,no,713,0,1893,0,2385,0
+228,119a7f48e5983cc374eb9dc6f5e3c29c43930504,2025-06-14T19:52:52-04:00,Merge pull request #150 from jdereg/yytw45-codex/ensure-source-compatibility-with-jdk-1.8,yes,713,0,1893,0,2385,0
+229,a4a82b4d4fd2ff14c18a24fea07cd22608c20d86,2025-06-14T20:14:27-04:00,Merge pull request #151 from jdereg/codex/add-@override-annotations-to-set-methods,yes,713,0,1893,0,2385,0
+230,c387a5f14870d740bc5d965a271a0b4bbc230cd5,2025-06-14T20:15:27-04:00,Merge pull request #152 from jdereg/codex/fix-jdk-1.8-compiler-issues-in-compileclassresourcetest,no,713,0,1893,0,2385,0
+231,095ed195f769def5c207c1a71b1a2350c6bcd6d9,2025-06-14T20:20:41-04:00,Merge pull request #153 from jdereg/codex/update-wrap-method-signature-and-invocations,yes,713,0,1893,0,2385,0
+232,0a385062ad6e107f47ebf740809703ccd2f29eff,2025-06-14T20:22:35-04:00,Merge pull request #154 from jdereg/codex/correct-typos-in-changelog.md,no,713,0,1893,0,2385,0
+233,7c1978e2d1d66ded1bca5d92234a8fb83853ab68,2025-06-14T20:24:24-04:00,Merge pull request #155 from jdereg/codex/refactor-caseinsensitiveset-methods,yes,713,0,1893,0,2385,0
+234,e4961947493dc6efff07b4692fb9d66c090cd0d9,2025-06-14T21:23:39-04:00,"The explicitly coded retainAll() and removeAll() are exactly, properly implemented routines that properly manage the Set change state.  The CompileClassResourceTest needed a missing import.",yes,713,0,1893,0,2385,0
+235,0414a2ee4ccc7b679d8558983bc080cf7e717e5e,2025-06-14T21:29:32-04:00,Merge pull request #157 from jdereg/codex/add-serializable-to-concurrentset-and-test,yes,713,0,1893,0,2385,0
+236,98e8bb54f1be964d016ff26d1f2802e76dc954c0,2025-06-14T21:33:46-04:00,Merge pull request #158 from jdereg/codex/review-compactset-implementation,yes,713,0,1893,0,2385,0
+237,ca301589d0de87ab55a2882f5da34e79abd9ccfc,2025-06-14T21:37:07-04:00,Merge pull request #159 from jdereg/codex/refactor-headset-and-tailset-methods,yes,713,0,1893,0,2385,0
+238,24a3fa4904ce72a1424be7a0f3af21cfcdd0fc76,2025-06-14T21:42:47-04:00,Added test to ensure view modifications are changing underlying source.,no,713,0,1893,0,2385,0
+239,3c245e1ff3cc2244388f486338fd279c786353cf,2025-06-14T22:05:32-04:00,Merge pull request #161 from jdereg/codex/review-and-suggest-changes-for-classvalueset,yes,713,0,1893,0,2385,0
+240,6398a329c858b3195485000b1f8fc9a7c947ff68,2025-06-14T22:07:10-04:00,Merge pull request #162 from jdereg/codex/validate-capacity-in-lrucache-constructors,yes,713,0,1893,0,2384,1
+241,2883b73d3f1c81b23a68f60195d650f59b439f18,2025-06-14T22:07:45-04:00,Merge pull request #163 from jdereg/codex/modify-lockinglrucachestrategy.put-behavior,yes,713,0,1893,0,2383,1
+242,b919983124f0998c1b39ce6f517d1bea2a8b7dd7,2025-06-14T22:08:45-04:00,Merge pull request #164 from jdereg/codex/update-javadocs-and-userguide.md,yes,713,0,1893,0,2383,0
+243,b29c3e2d9046b452280c310e65293bd8d33bd77f,2025-06-14T22:09:44-04:00,"Merge pull request #165 from jdereg/codex/review-entryset,-keyset,-values-in-lockinglrucachestrategy",yes,713,0,1893,0,2383,0
+244,8c6e28930ee447349e3374f29439f01afccaff04,2025-06-14T22:17:03-04:00,Merge pull request #166 from jdereg/codex/update-ttlcache.put-and-add-tests,yes,713,0,1892,1,2380,3
+245,e6494b35af885ae2df60151a76aac609363f23ca,2025-06-14T22:18:22-04:00,Merge pull request #167 from jdereg/codex/store-and-cancel-scheduledfuture-for-cache-task,yes,713,0,1892,0,2380,0
+246,0c2980c31e43688b9128caa46910475b22c49e36,2025-06-14T22:19:01-04:00,Merge pull request #168 from jdereg/codex/add-test-for-duplicate-key-in-ttlcache,no,713,0,1892,0,2380,0
+247,ded944a168d4ff82cbe6a5e41c54fac6df94fdc9,2025-06-14T22:27:50-04:00,Merge pull request #169 from jdereg/codex/update-hashcode-implementation-with-cachemap-entries,yes,711,2,1892,0,2380,0
+248,6883c043fa064dc21e49f1be940ab6d9a209479f,2025-06-14T22:36:27-04:00,Merge pull request #170 from jdereg/codex/review-ttlcache-and-suggest-improvements,no,711,0,1892,0,2380,0
+249,67bc1c218b967f386de1b89054c09a4879515a21,2025-06-14T22:54:52-04:00,Merge pull request #171 from jdereg/codex/review-trackingmap-for-defects-and-improvements,yes,711,0,1880,12,2281,99
+250,771d1639cf1fb5e6c6509fa03d580079f49801c4,2025-06-14T22:57:13-04:00,Merge pull request #172 from jdereg/codex/review-concurrenthashmapnullsafe-for-improvements,yes,711,0,1880,0,2281,0
+251,93157f51d92dd4327bfe680aea242c634e31f23f,2025-06-14T23:05:33-04:00,updated changelog.md to reflect correct place changes are being made.,no,711,0,1880,0,2281,0
+252,b634dcf790bb83ca8c134bddf592b0fb7fa8ee67,2025-06-14T23:06:03-04:00,updated version number in pom,yes,711,0,1880,0,2281,0
+253,6563ec95b8ccb0f709cbd38270d08d7928510846,2025-06-14T23:09:41-04:00,Merge pull request #173 from jdereg/codex/review-concurrentnavigablemapnullsafe-for-issues,yes,711,0,1880,0,2281,0
+254,c58945fe4ecac598ba46874a81f2832ac6c7da7a,2025-06-14T23:18:48-04:00,Merge pull request #174 from jdereg/codex/conduct-code-review-for-arrayutilities,yes,711,0,1880,0,2281,0
+255,b5635be60b6a494cde70e957916e5339b356cdbb,2025-06-14T23:22:32-04:00,Merge pull request #175 from jdereg/codex/review-byteutilities-for-improvements,yes,711,0,1879,1,2279,2
+256,6d2de8902778a47ea31d6014d6b0f21136ca5e20,2025-06-14T23:25:02-04:00,Merge pull request #176 from jdereg/codex/review-and-improve-concurrentlist-code,no,711,0,1879,0,2279,0
+257,fc58bfeebf56252fe328e63257ce3f5577a39e78,2025-06-14T23:39:39-04:00,Merge pull request #178 from jdereg/bghoao-codex/conduct-code-review-for-arrayutilities,no,711,0,1879,0,2279,0
+258,3060134d9807d8404e45de965703f4367bf16141,2025-06-14T23:43:08-04:00,Merge pull request #177 from jdereg/tzkbmk-codex/review-and-improve-concurrentlist-code,yes,711,0,1875,4,2268,11
+259,8911e93e36a23a6ae057595da4167292e5fc6f7a,2025-06-14T23:57:46-04:00,added agents.md,no,711,0,1875,0,2268,0
+260,24178adfef264354424ab88be544bf23ac8bbd7c,2025-06-15T00:21:34-04:00,Merge pull request #179 from jdereg/codex/review-and-optimize-dateutilities,yes,711,0,1875,0,2268,0
+261,baef5635e62b3033e188eb9f69538bfe30f0b991,2025-06-15T00:25:31-04:00,Merge pull request #180 from jdereg/4l9ef3-codex/review-and-improve-concurrentlist-code,yes,711,0,1875,0,2263,5
+262,c3a0d6d95e2bbcaf3f330a25a5acd9d5fcbec818,2025-06-15T00:30:47-04:00,Merge pull request #181 from jdereg/codex/review-converter-for-defects-and-improvements,yes,711,0,1875,0,2263,0
+263,e1660a32a7486357dd8e8ef1afad40a9cc9c7d84,2025-06-15T00:37:58-04:00,Merge pull request #182 from jdereg/codex/review-classutilities-for-improvements,yes,711,0,1875,0,2263,0
+264,3ade8bb1bb31581b8778d5917b07b76d016472bd,2025-06-15T00:49:42-04:00,Merge pull request #183 from jdereg/codex/review-encryptionutilities-for-issues-and-improvements,yes,707,4,1871,4,2263,0
+265,f7f820ac73271e01b92530f0a636b8eb3b0c015c,2025-06-15T00:55:27-04:00,Merge pull request #184 from jdereg/codex/review-and-optimize-executor-class,yes,707,0,1869,2,2250,13
+266,5f9e56de64cbb25b989a9e052b531ba7ffea7839,2025-06-15T00:59:34-04:00,Merge pull request #185 from jdereg/codex/review-ioutilities-for-defects-and-improvements,yes,659,48,1869,0,2250,0
+267,5f34491ddea59ba9430da6d5e7e06c3eef9f17de,2025-06-15T01:07:16-04:00,Merge pull request #186 from jdereg/codex/review-mathutilities-for-code-quality-improvements,yes,659,0,1864,5,2246,4
+268,ce90dc7da5fb46a0be43d3480eb934f8069fea30,2025-06-15T01:09:39-04:00,fixed method naming to match comments,yes,659,0,1864,0,2246,0
+269,ab6af8449cd1fbc39fea51718668be50a893689f,2025-06-15T01:13:51-04:00,Merge pull request #187 from jdereg/vseo74-codex/review-encryptionutilities-for-issues-and-improvements,yes,659,0,1864,0,2246,0
+270,f7446176c2dcc8655c246b0ee3f83b3a3ef53335,2025-06-15T01:22:35-04:00,Merge pull request #188 from jdereg/va2qs4-codex/review-ioutilities-for-defects-and-improvements,no,659,0,1864,0,2246,0
+271,e5bec2c79643a2504d8ce09c8eb5b95addecaf9a,2025-06-15T01:26:43-04:00,Merge pull request #189 from jdereg/codex/review-reflectionutils-for-defects-and-improvements,yes,659,0,1864,0,2246,0
+272,2f6ab525f083fc91370376e5ab98c27214db6447,2025-06-15T01:31:53-04:00,Merge pull request #190 from jdereg/codex/review-typeutilities-for-improvements,yes,659,0,1864,0,2246,0
+273,afe8805ac1339f084e0b85308e054d3d52ecbd10,2025-06-15T01:37:25-04:00,Merge pull request #191 from jdereg/codex/review-stringutilities-for-code-quality-improvements,yes,598,61,1862,2,2113,133
+274,e75d79cac9a329cdde17050d7dd545d1ba53119c,2025-06-15T01:43:50-04:00,Merge pull request #192 from jdereg/codex/review-systemutilities-for-issues-and-improvements,yes,598,0,1862,0,2113,0
+275,6b5bb69a2503edefee67d877af6bc1c3354846eb,2025-06-15T01:49:02-04:00,Merge pull request #193 from jdereg/codex/review-and-improve-traverser-class-code,yes,598,0,1862,0,2113,0
+276,6fdc1f5517a55e739706911cd45c8b26c53dc04f,2025-06-15T02:06:41-04:00,Merge pull request #194 from jdereg/codex/review-uniqueidgenerator-code-for-issues-and-improvements,yes,598,0,1862,0,2113,0
+277,0f7b62199e6557e91f9e5b1b108cd65659380441,2025-06-15T02:08:41-04:00,Merge pull request #195 from jdereg/codex/fix-failure-in-traversertest.testlazyfieldcollection,yes,598,0,1862,0,2113,0
+278,28ef7552cb1a8741a1d41b26da86ced63ab70f21,2025-06-15T02:13:58-04:00,Merge pull request #196 from jdereg/codex/fix-broken-test-for-lazy-field-collection,no,598,0,1862,0,2113,0
+279,b58b3bf754271f5cfc1f796548584fcdd2926a1c,2025-06-15T02:19:13-04:00,Merge pull request #197 from jdereg/codex/fix-failing-lazy-field-collection-test,yes,598,0,1862,0,2113,0
+280,01a27cbf42cd7e8c13312fedf43cc4352810fd14,2025-06-15T02:25:15-04:00,Merge pull request #198 from jdereg/codex/replace-system.out/system.err-with-java-logger,yes,598,0,1861,1,2113,0
+281,7c49d2b78991a5ac5dd3c1ae5c1b52779de95502,2025-06-15T02:31:31-04:00,Merge pull request #199 from jdereg/dg8z2w-codex/fix-failing-lazy-field-collection-test,yes,598,0,1861,0,2113,0
+282,97a696e8d6d33ead1d6740f4148051ec4333312a,2025-06-15T02:43:39-04:00,Merge pull request #200 from jdereg/codex/add-logging-integration-documentation,no,598,0,1861,0,2113,0
+283,54052bcbe198a13e8c8a53d2153e01b0e3a75c2d,2025-06-15T02:47:42-04:00,Merge pull request #201 from jdereg/codex/standardize-java-logging-format,yes,598,0,1860,1,2113,0
+284,70cac6a800a4e104bde292a3350e790a826c3ffb,2025-06-15T02:59:19-04:00,"Merge pull request #202 from jdereg/codex/update-readme-with-slf4j,-logback,-and-log4j-logging-configu",no,598,0,1860,0,2113,0
+285,4770d05ce1f6172dcebfeef6c55f84f46135a6ca,2025-06-15T03:17:20-04:00,Merge pull request #203 from jdereg/codex/refine-logging-configuration-and-utilities,yes,598,0,1860,0,2113,0
+286,8449c104242a28c7782bd7f85a7e84bbb092517c,2025-06-15T03:19:40-04:00,updated changelog.md feature ordering,no,598,0,1860,0,2113,0
+287,0442196f4453abef3ba39c81b75f004e1933edc3,2025-06-15T03:22:17-04:00,updated changelog.md feature ordering,no,598,0,1860,0,2113,0
+288,c010cc3a0041acf78e84cf0e1849ed17dafc30d4,2025-06-15T03:23:16-04:00,preparing for 3.3.3 release,yes,598,0,1860,0,2113,0
+289,6b69e7e0ba3b1c9f4fb7fa1466d1a4e02effd629,2025-06-15T03:39:19-04:00,Merge pull request #204 from jdereg/codex/add-javadoc-to-missing-public-apis,yes,598,0,1860,0,2113,0
+290,86e0751aafeda2498b01fabd098152cbd4b81681,2025-06-15T03:43:49-04:00,Merge pull request #205 from jdereg/codex/review-and-improve-mvn-clean-install-output,yes,598,0,1860,0,2113,0
+291,c5e98c01a114225db72a9344117f390077537421,2025-06-15T03:46:51-04:00,"added explicit maven resources, install, and deploy plug-in versions to remove maven output warnings.",yes,598,0,1860,0,2113,0
+292,f2c547dbd7cdff2ec07383d0220e18dc1380729b,2025-06-15T03:50:35-04:00,Merge pull request #206 from jdereg/sr5hqv-codex/review-stringutilities-for-code-quality-improvements,yes,598,0,1860,0,2113,0
+293,586c73d4dbf3d172d4dfd0baa90d9b7badf9b69b,2025-06-15T04:00:08-04:00,Merge pull request #207 from jdereg/codex/add-high-value-stringutilities-apis-with-tests,yes,598,0,1860,0,2113,0
+294,59a157c31e4fe21a9f4cbadd1650d88ec7516805,2025-06-15T04:02:13-04:00,added new StringUtilities APIs and tests.,no,598,0,1860,0,2113,0
+295,b45e7fba6a029fefeef70087c869e5f1a911e62f,2025-06-15T04:17:55-04:00,Merge pull request #208 from jdereg/codex/write-junit-tests-for-public-apis,no,598,0,1860,0,2113,0
+296,3990317c927bd1022c41647abfac7cba0191e78a,2025-06-15T04:30:06-04:00,Merge pull request #209 from jdereg/codex/write-junit-tests-for-tohexchar,no,598,0,1860,0,2113,0
+297,b249c6431583c4da0e34493cb4c1ada042e730f0,2025-06-15T04:31:51-04:00,Merge pull request #210 from jdereg/codex/write-junit-tests-for-classutilities-methods,no,598,0,1860,0,2113,0
+298,ae6d193e5e80b56a26d42823bd498a0d422934fd,2025-06-15T04:37:55-04:00,Merge pull request #211 from jdereg/codex/write-junit-tests-for-collectionconversions-methods,no,598,0,1860,0,2113,0
+299,f37f815cdbc36ee8ba98b88382ba179865a8fe91,2025-06-15T04:44:40-04:00,Merge pull request #212 from jdereg/codex/write-junit-tests-for-collectionutilities-methods,no,598,0,1860,0,2113,0
+300,a640ba46b2cb54f219c63826e9cfcbbdcbc4bed8,2025-06-15T04:52:12-04:00,Merge pull request #213 from jdereg/codex/write-junit-tests-for-collectionswrappers-apis,no,598,0,1860,0,2113,0

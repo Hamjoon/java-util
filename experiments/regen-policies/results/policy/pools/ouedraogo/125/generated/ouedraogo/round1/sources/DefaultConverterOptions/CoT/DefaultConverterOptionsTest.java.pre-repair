@@ -1,0 +1,136 @@
+package com.cedarsoftware.util.convert;
+
+import org.junit.Before;
+import org.junit.Test;
+
+import java.lang.reflect.Field;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
+import static org.junit.Assert.*;
+
+/**
+ * JUnit‑4 test suite for {@link DefaultConverterOptions}.
+ *
+ * The tests cover:
+ * <ul>
+ *   <li>Public API surface (constructor, {@code getCustomOption}, {@code getConverterOverrides})</li>
+ *   <li>Basic functional behaviour</li>
+ *   <li>Edge‑cases such as {@code null} arguments and type‑mismatch casts</li>
+ *   <li>Interaction with the internal mutable maps via the returned reference</li>
+ * </ul>
+ */
+public class DefaultConverterOptionsTest {
+
+    private DefaultConverterOptions options;
+    private Field customOptionsField;   // reflective access to the private map
+
+    @Before
+    public void setUp() throws Exception {
+        options = new DefaultConverterOptions();
+
+        // Obtain reference to the private field "customOptions" so we can inject test data.
+        customOptionsField = DefaultConverterOptions.class.getDeclaredField("customOptions");
+        customOptionsField.setAccessible(true);
+    }
+
+    /** Helper to put a value directly into the private {@code customOptions} map. */
+    private void putCustomOption(String name, Object value) throws Exception {
+        @SuppressWarnings("unchecked")
+        Map<String, Object> map = (Map<String, Object>) customOptionsField.get(options);
+        map.put(name, value);
+    }
+
+    /** Helper to retrieve the internal {@code customOptions} map for assertions. */
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> getInternalCustomOptions() throws Exception {
+        return (Map<String, Object>) customOptionsField.get(options);
+    }
+
+    // -----------------------------------------------------------------------
+    // Constructor & basic state tests
+    // -----------------------------------------------------------------------
+
+    @Test
+    public void testConstructorInitialisesMapsNotNull() {
+        assertNotNull("customOptions map should be instantiated", getInternalCustomOptions());
+        assertNotNull("converterOverrides map should be instantiated",
+                options.getConverterOverrides());
+    }
+
+    @Test
+    public void testConverterOverridesIsConcurrentHashMap() {
+        assertTrue("converterOverrides should be a ConcurrentHashMap",
+                options.getConverterOverrides() instanceof ConcurrentHashMap);
+    }
+
+    // -----------------------------------------------------------------------
+    // getCustomOption(String) basic functionality
+    // -----------------------------------------------------------------------
+
+    @Test
+    public void testGetCustomOptionReturnsNullWhenMissing() {
+        // No entry has been added for "missingKey"
+        assertNull("Missing key should return null", options.getCustomOption("missingKey"));
+    }
+
+    @Test
+    public void testGetCustomOptionReturnsStoredValue() throws Exception {
+        putCustomOption("answer", 42);
+        Integer result = options.getCustomOption("answer");
+        assertEquals("Stored value should be returned", Integer.valueOf(42), result);
+    }
+
+    @Test(expected = NullPointerException.class)
+    public void testGetCustomOptionNullKeyThrowsNPE() {
+        // ConcurrentHashMap does not allow null keys – the method should propagate NPE.
+        options.getCustomOption(null);
+    }
+
+    @Test(expected = ClassCastException.class)
+    public void testGetCustomOptionTypeMismatchThrowsClassCastException() throws Exception {
+        putCustomOption("pi", Double.valueOf(3.14));
+        // The stored value is Double, but we request it as String – a ClassCastException is expected.
+        options.<String>getCustomOption("pi");
+    }
+
+    // -----------------------------------------------------------------------
+    // getConverterOverrides() behaviour
+    // -----------------------------------------------------------------------
+
+    @Test
+    public void testGetConverterOverridesReturnsSameInstance() {
+        Map<ConversionPair, Convert<?>> firstCall = options.getConverterOverrides();
+        Map<ConversionPair, Convert<?>> secondCall = options.getConverterOverrides();
+
+        assertSame("Multiple calls must return the same map instance", firstCall, secondCall);
+    }
+
+    @Test
+    public void testGetConverterOverridesIsMutableThroughReturnedReference() {
+        Map<ConversionPair, Convert<?>> overrides = options.getConverterOverrides();
+
+        // Create a dummy ConversionPair and a no‑op Convert implementation.
+        ConversionPair pair = new ConversionPair(String.class, Integer.class);
+        Convert<Integer> dummyConvert = (from, converter) -> Integer.valueOf(0);
+
+        overrides.put(pair, dummyConvert);
+
+        // Verify that the internal map now contains the entry.
+        assertTrue("The map should contain the newly added pair",
+                options.getConverterOverrides().containsKey(pair));
+        assertEquals("The stored Convert instance should be the one we added",
+                dummyConvert, options.getConverterOverrides().get(pair));
+    }
+
+    @Test
+    public void testGetConverterOverridesRejectsNullKey() {
+        Map<ConversionPair, Convert<?>> overrides = options.getConverterOverrides();
+        try {
+            overrides.put(null, (from, converter) -> null);
+            fail("ConcurrentHashMap should reject null keys and throw NPE");
+        } catch (NullPointerException expected) {
+            // Expected behaviour
+        }
+    }
+}

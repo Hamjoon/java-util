@@ -1,0 +1,145 @@
+package com.cedarsoftware.util.convert;
+
+import org.junit.Test;
+import java.time.Year;
+import java.math.BigInteger;
+import java.math.BigDecimal;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+
+import static org.junit.Assert.*;
+
+public class YearConversionsTest {
+
+    /** Helper to create a Year instance and invoke a conversion method with a null Converter (not used). */
+    private static Object convert(Object from, java.util.function.BiFunction<Object, Converter, ?> conversion) {
+        // The Converter argument is ignored by all YearConversions methods, so we can safely pass null.
+        return conversion.apply(from, null);
+    }
+
+    @Test
+    public void testToIntAndToLong() {
+        Year year = Year.of(2023);
+        int intValue = YearConversions.toInt(year, null);
+        long longValue = YearConversions.toLong(year, null);
+        assertEquals(2023, intValue);
+        assertEquals(2023L, longValue);
+    }
+
+    @Test
+    public void testToShortWithinRange() {
+        Year year = Year.of(2023);
+        short shortValue = YearConversions.toShort(year, null);
+        assertEquals((short)2023, shortValue);
+    }
+
+    @Test
+    public void testToShortOverflow() {
+        // 40000 exceeds the range of a signed 16‑bit short; the cast will wrap around.
+        Year year = Year.of(40000);
+        short shortValue = YearConversions.toShort(year, null);
+        assertEquals((short)40000, shortValue);
+    }
+
+    @Test
+    public void testToAtomicInteger() {
+        Year year = Year.of(1999);
+        AtomicInteger ai = YearConversions.toAtomicInteger(year, null);
+        assertNotNull(ai);
+        assertEquals(1999, ai.get());
+    }
+
+    @Test
+    public void testToAtomicLong() {
+        Year year = Year.of(1999);
+        AtomicLong al = YearConversions.toAtomicLong(year, null);
+        assertNotNull(al);
+        assertEquals(1999L, al.get());
+    }
+
+    @Test
+    public void testToDoubleAndToFloat() {
+        Year year = Year.of(2021);
+        double d = YearConversions.toDouble(year, null);
+        float f = YearConversions.toFloat(year, null);
+        assertEquals(2021.0, d, 0.0);
+        assertEquals(2021.0f, f, 0.0f);
+    }
+
+    @Test
+    public void testToAtomicBoolean() {
+        Year zeroYear = Year.of(0);
+        Year nonZeroYear = Year.of(2022);
+
+        AtomicBoolean abZero = YearConversions.toAtomicBoolean(zeroYear, null);
+        AtomicBoolean abNonZero = YearConversions.toAtomicBoolean(nonZeroYear, null);
+
+        assertFalse(abZero.get());
+        assertTrue(abNonZero.get());
+    }
+
+    @Test
+    public void testToBigIntegerAndBigDecimal() {
+        Year year = Year.of(12345);
+        BigInteger bi = YearConversions.toBigInteger(year, null);
+        BigDecimal bd = YearConversions.toBigDecimal(year, null);
+        assertEquals(BigInteger.valueOf(12345), bi);
+        assertEquals(BigDecimal.valueOf(12345), bd);
+    }
+
+    @Test
+    public void testToString() {
+        Year year = Year.of(1995);
+        String s = YearConversions.toString(year, null);
+        assertEquals("1995", s);
+    }
+
+    @Test
+    public void testToMap() {
+        Year year = Year.of(2008);
+        Map<?, ?> map = YearConversions.toMap(year, null);
+        assertNotNull(map);
+        // The map should contain exactly one entry with key MapConversions.YEAR and value 2008.
+        assertEquals(1, map.size());
+
+        // Use the constant from MapConversions for the key.
+        Object key = MapConversions.YEAR;
+        assertTrue(map.containsKey(key));
+        assertEquals(Integer.valueOf(2008), map.get(key));
+
+        // Verify the concrete implementation is a CompactMap (optional, but useful for coverage).
+        assertTrue("Map should be an instance of CompactMap", map instanceof CompactMap);
+    }
+
+    @Test
+    public void testNegativeYearConversions() {
+        Year year = Year.of(-500);
+        assertEquals(-500, YearConversions.toInt(year, null));
+        assertEquals(-500L, YearConversions.toLong(year, null));
+        assertEquals((short)-500, YearConversions.toShort(year, null));
+        assertEquals(-500, YearConversions.toAtomicInteger(year, null).get());
+        assertEquals(-500L, YearConversions.toAtomicLong(year, null).get());
+        assertEquals(-500.0, YearConversions.toDouble(year, null), 0.0);
+        assertEquals(-500.0f, YearConversions.toFloat(year, null), 0.0f);
+        assertTrue(YearConversions.toAtomicBoolean(year, null).get()); // non‑zero => true
+        assertEquals(BigInteger.valueOf(-500), YearConversions.toBigInteger(year, null));
+        assertEquals(BigDecimal.valueOf(-500), YearConversions.toBigDecimal(year, null));
+        assertEquals("-500", YearConversions.toString(year, null));
+        Map<?, ?> map = YearConversions.toMap(year, null);
+        assertEquals(Integer.valueOf(-500), map.get(MapConversions.YEAR));
+    }
+
+    @Test(expected = ClassCastException.class)
+    public void testToIntWithInvalidSource() {
+        // Passing a non‑Year object should result in a ClassCastException.
+        YearConversions.toInt("not a year", null);
+    }
+
+    @Test(expected = ClassCastException.class)
+    public void testToMapWithInvalidSource() {
+        // Passing a non‑Year object should result in a ClassCastException when casting.
+        YearConversions.toMap(12345, null);
+    }
+}

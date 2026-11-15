@@ -1,0 +1,130 @@
+package com.cedarsoftware.util.convert;
+import com.cedarsoftware.util.CompactLinkedMap;
+
+
+import org.junit.Test;
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.rules.ExpectedException;
+
+import java.time.Period;
+import java.util.Map;
+
+import static org.junit.Assert.*;
+
+/**
+ * Unit tests for {@link PeriodConversions}.
+ *
+ * These tests cover the {@code toMap} static method, ensuring that it correctly
+ * extracts the year, month and day components from a {@link Period} instance
+ * and places them into a {@link CompactLinkedMap} using the keys defined in
+ * {@link MapConversions}.
+ *
+ * The test suite also verifies the method's behaviour when a non‑{@code Period}
+ * object is supplied (a {@link ClassCastException} is expected) and checks that
+ * the returned map is mutable and of the expected concrete type.
+ */
+public class PeriodConversionsTest {
+
+    private Converter converter;
+
+    @Rule
+    public ExpectedException thrown = ExpectedException.none();
+
+    @Before
+    public void setUp() {
+        // Converter can be instantiated with null options for the purpose of this test.
+        // The toMap implementation does not use the Converter instance at all.
+        this.converter = new Converter(null);
+    }
+
+    /**
+     * Helper method that asserts the map contains exactly the expected year,
+     * month and day entries.
+     */
+    private void assertPeriodMap(Map<String, Object> map, int years, int months, int days) {
+        assertNotNull("Returned map must not be null", map);
+        assertEquals("Map should contain exactly three entries", 3, map.size());
+
+        assertTrue("Map must contain the YEARS key", map.containsKey(MapConversions.YEARS));
+        assertTrue("Map must contain the MONTHS key", map.containsKey(MapConversions.MONTHS));
+        assertTrue("Map must contain the DAYS key", map.containsKey(MapConversions.DAYS));
+
+        assertEquals("Incorrect years value", years, map.get(MapConversions.YEARS));
+        assertEquals("Incorrect months value", months, map.get(MapConversions.MONTHS));
+        assertEquals("Incorrect days value", days, map.get(MapConversions.DAYS));
+    }
+
+    @Test
+    public void testToMap_WithZeroPeriod() {
+        Period period = Period.of(0, 0, 0);
+        Map<String, Object> result = PeriodConversions.toMap(period, converter);
+        assertPeriodMap(result, 0, 0, 0);
+        assertTrue("Resulting map should be an instance of CompactLinkedMap",
+                result instanceof CompactLinkedMap);
+    }
+
+    @Test
+    public void testToMap_WithPositiveValues() {
+        Period period = Period.of(5, 11, 23);
+        Map<String, Object> result = PeriodConversions.toMap(period, converter);
+        assertPeriodMap(result, 5, 11, 23);
+    }
+
+    @Test
+    public void testToMap_WithNegativeValues() {
+        // Period allows negative components; they are normalized when created via of()
+        // Using ofYears, ofMonths, ofDays to keep negative values intact.
+        Period period = Period.ofYears(-2).plusMonths(-4).plusDays(-15);
+        Map<String, Object> result = PeriodConversions.toMap(period, converter);
+        assertPeriodMap(result, -2, -4, -15);
+    }
+
+    @Test
+    public void testToMap_WithMixedValues() {
+        // Mixed positive and negative components are allowed.
+        Period period = Period.ofYears(3).plusMonths(-6).plusDays(10);
+        Map<String, Object> result = PeriodConversions.toMap(period, converter);
+        assertPeriodMap(result, 3, -6, 10);
+    }
+
+    @Test
+    public void testToMap_WithLargeValues() {
+        // Edge case with large numbers to ensure no overflow or truncation.
+        Period period = Period.of(Integer.MAX_VALUE, 12, 31);
+        Map<String, Object> result = PeriodConversions.toMap(period, converter);
+        assertPeriodMap(result, Integer.MAX_VALUE, 12, 31);
+    }
+
+    @Test
+    public void testToMap_DoesNotModifyReturnedMap() {
+        Period period = Period.of(1, 2, 3);
+        Map<String, Object> map = PeriodConversions.toMap(period, converter);
+        // Modify the map and ensure the change persists (verifying mutability)
+        map.put(MapConversions.YEARS, 99);
+        assertEquals("Mutating the map should reflect the new value", 99, map.get(MapConversions.YEARS));
+    }
+
+    @Test
+    public void testToMap_WithNonPeriodObject_ThrowsClassCastException() {
+        thrown.expect(ClassCastException.class);
+        // Pass a String instead of a Period – the method casts without checking.
+        PeriodConversions.toMap("not a period", converter);
+    }
+
+    @Test
+    public void testToMap_DoesNotUseConverterArgument() {
+        // Verify that the converter argument is not consulted by the implementation.
+        // We can pass a Converter that would throw if any method were called,
+        // but because toMap does not use it, no exception should be raised.
+        Converter hostileConverter = new Converter(null) {
+            @Override
+            public <T> T convert(Object from, Class<T> toType) {
+                throw new AssertionError("Converter should not be used");
+            }
+        };
+        Period period = Period.of(7, 8, 9);
+        Map<String, Object> result = PeriodConversions.toMap(period, hostileConverter);
+        assertPeriodMap(result, 7, 8, 9);
+    }
+}

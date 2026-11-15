@@ -1,0 +1,124 @@
+package com.cedarsoftware.util.convert;
+import com.cedarsoftware.util.CompactMap;
+
+
+import org.junit.Test;
+import static org.junit.Assert.*;
+
+import java.time.ZoneId;
+import java.time.ZoneOffset;
+import java.util.Map;
+import java.util.TimeZone;
+
+/**
+ * Unit tests for {@link TimeZoneConversions}.
+ *
+ * All methods in {@code TimeZoneConversions} are package‑private static,
+ * therefore the test class resides in the same package to gain access.
+ */
+public class TimeZoneConversionsTest {
+
+    /**
+     * Helper that creates a {@link Converter} instance.
+     * The conversion methods under test do not use the converter,
+     * so we can safely pass {@code null}.  The method exists only
+     * to make the intent of the tests explicit.
+     */
+    private static Converter dummyConverter() {
+        return null; // converter is unused by TimeZoneConversions
+    }
+
+    @Test
+    public void testToString_WithUtc() {
+        TimeZone tz = TimeZone.getTimeZone("UTC");
+        String result = TimeZoneConversions.toString(tz, dummyConverter());
+        assertEquals("UTC", result);
+    }
+
+    @Test
+    public void testToString_WithNamedZone() {
+        TimeZone tz = TimeZone.getTimeZone("America/New_York");
+        String result = TimeZoneConversions.toString(tz, dummyConverter());
+        assertEquals("America/New_York", result);
+    }
+
+    @Test
+    public void testToZoneId_ReturnsCorrespondingZoneId() {
+        TimeZone tz = TimeZone.getTimeZone("Europe/Paris");
+        ZoneId zoneId = TimeZoneConversions.toZoneId(tz, dummyConverter());
+        assertEquals(ZoneId.of("Europe/Paris"), zoneId);
+    }
+
+    @Test
+    public void testToMap_ContainsCorrectKeyAndValue() {
+        TimeZone tz = TimeZone.getTimeZone("Asia/Tokyo");
+        Map<String, Object> map = TimeZoneConversions.toMap(tz, dummyConverter());
+
+        // The map should be a CompactMap (which implements Map)
+        assertTrue("Result should be an instance of CompactMap",
+                map instanceof CompactMap);
+
+        // Verify only the expected entry is present
+        assertEquals(1, map.size());
+        assertTrue("Map must contain the ZONE key", map.containsKey(MapConversions.ZONE));
+        assertEquals(tz.getID(), map.get(MapConversions.ZONE));
+    }
+
+    @Test
+    public void testToZoneOffset_UtcZeroOffset() {
+        TimeZone tz = TimeZone.getTimeZone("UTC");
+        ZoneOffset offset = TimeZoneConversions.toZoneOffset(tz, dummyConverter());
+        assertEquals(ZoneOffset.UTC, offset);
+    }
+
+    @Test
+    public void testToZoneOffset_PositiveWholeHour() {
+        // GMT+02:00 has a raw offset of 2 * 60 * 60 * 1000 ms
+        TimeZone tz = TimeZone.getTimeZone("GMT+02:00");
+        ZoneOffset offset = TimeZoneConversions.toZoneOffset(tz, dummyConverter());
+        assertEquals(ZoneOffset.ofHours(2), offset);
+    }
+
+    @Test
+    public void testToZoneOffset_NegativeWholeHour() {
+        // GMT-05:00 has a raw offset of -5 * 60 * 60 * 1000 ms
+        TimeZone tz = TimeZone.getTimeZone("GMT-05:00");
+        ZoneOffset offset = TimeZoneConversions.toZoneOffset(tz, dummyConverter());
+        assertEquals(ZoneOffset.ofHours(-5), offset);
+    }
+
+    @Test
+    public void testToZoneOffset_PositiveHalfHour() {
+        // GMT+05:30 raw offset = 5.5 hours in ms
+        TimeZone tz = TimeZone.getTimeZone("GMT+05:30");
+        ZoneOffset offset = TimeZoneConversions.toZoneOffset(tz, dummyConverter());
+        assertEquals(ZoneOffset.ofHoursMinutes(5, 30), offset);
+    }
+
+    @Test
+    public void testToZoneOffset_NegativeHalfHour() {
+        // GMT-03:30 raw offset = -3.5 hours in ms
+        TimeZone tz = TimeZone.getTimeZone("GMT-03:30");
+        ZoneOffset offset = TimeZoneConversions.toZoneOffset(tz, dummyConverter());
+        assertEquals(ZoneOffset.ofHoursMinutes(-3, -30), offset);
+    }
+
+    @Test
+    public void testAllMethodsWithSameTimeZoneConsistency() {
+        // Choose a zone with a non‑zero offset to verify consistency across methods
+        TimeZone tz = TimeZone.getTimeZone("America/Los_Angeles"); // typically -08:00
+
+        String idString = TimeZoneConversions.toString(tz, dummyConverter());
+        ZoneId zoneId = TimeZoneConversions.toZoneId(tz, dummyConverter());
+        Map<String, Object> map = TimeZoneConversions.toMap(tz, dummyConverter());
+        ZoneOffset offset = TimeZoneConversions.toZoneOffset(tz, dummyConverter());
+
+        // Verify that each representation reflects the same underlying ID
+        assertEquals(tz.getID(), idString);
+        assertEquals(ZoneId.of(tz.getID()), zoneId);
+        assertEquals(tz.getID(), map.get(MapConversions.ZONE));
+        // Compute expected offset from raw offset
+        int expectedSeconds = tz.getRawOffset() / 1000;
+        assertEquals(ZoneOffset.ofTotalSeconds(expectedSeconds), offset);
+    }
+}

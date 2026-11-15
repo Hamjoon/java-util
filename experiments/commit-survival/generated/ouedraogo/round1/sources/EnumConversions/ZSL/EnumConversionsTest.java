@@ -1,0 +1,96 @@
+package com.cedarsoftware.util.convert;
+import com.cedarsoftware.util.CompactLinkedMap;
+
+
+import org.junit.Test;
+import static org.junit.Assert.*;
+
+import java.util.Map;
+
+/**
+ * Unit tests for {@link EnumConversions}.
+ * <p>
+ * The class under test is package‑private, therefore this test class lives in the same
+ * package so it can access the static {@code toMap} method.
+ */
+public class EnumConversionsTest {
+
+    /** Simple enum used for test scenarios. */
+    private enum SampleEnum {
+        FIRST,
+        SECOND,
+        THIRD
+    }
+
+    /**
+     * Verify that {@code toMap} returns a non‑null map containing a single entry
+     * with key {@code "name"} and the enum constant's {@code name()} as the value.
+     * Also assert that the concrete map implementation is {@link CompactLinkedMap}.
+     */
+    @Test
+    public void testToMapReturnsCorrectMapForEnum() {
+        // Arrange
+        SampleEnum value = SampleEnum.SECOND;
+        // The converter argument is not used by the method; passing {@code null} is fine.
+        Converter unusedConverter = null;
+
+        // Act
+        Map result = EnumConversions.toMap(value, unusedConverter);
+
+        // Assert
+        assertNotNull("Result map should not be null", result);
+        assertTrue("Result map should be an instance of CompactLinkedMap",
+                result instanceof CompactLinkedMap);
+        assertEquals("Map should contain exactly one entry", 1, result.size());
+        assertTrue("Map should contain key 'name'", result.containsKey("name"));
+        assertEquals("Value for key 'name' should match enum name",
+                value.name(), result.get("name"));
+    }
+
+    /**
+     * Verify that the method does not depend on the {@link Converter} argument.
+     * A real {@link Converter} instance (with a {@code null} options object) is supplied
+     * and the same result as the {@code null} case is expected.
+     */
+    @Test
+    public void testConverterParameterIsIgnored() {
+        // Arrange
+        SampleEnum value = SampleEnum.THIRD;
+        Converter realConverter = new Converter(null); // options are not used
+
+        // Act
+        Map resultWithNull = EnumConversions.toMap(value, null);
+        Map resultWithConverter = EnumConversions.toMap(value, realConverter);
+
+        // Assert
+        assertEquals("Both results should be equal regardless of converter argument",
+                resultWithNull, resultWithConverter);
+    }
+
+    /**
+     * Passing an object that is not an {@link Enum} should result in a {@link ClassCastException}
+     * because the method unconditionally casts the argument to {@code Enum}.
+     */
+    @Test(expected = ClassCastException.class)
+    public void testToMapThrowsClassCastExceptionWhenNonEnum() {
+        // Arrange
+        String notAnEnum = "I am not an enum";
+
+        // Act
+        EnumConversions.toMap(notAnEnum, null);
+
+        // Assert is handled by the {@code expected} attribute
+    }
+
+    /**
+     * Passing {@code null} as the source object should cause a {@link NullPointerException}
+     * when the method attempts to call {@code name()} on the casted {@code null} reference.
+     */
+    @Test(expected = NullPointerException.class)
+    public void testToMapThrowsNullPointerExceptionWhenSourceIsNull() {
+        // Act
+        EnumConversions.toMap(null, null);
+
+        // Assert is handled by the {@code expected} attribute
+    }
+}

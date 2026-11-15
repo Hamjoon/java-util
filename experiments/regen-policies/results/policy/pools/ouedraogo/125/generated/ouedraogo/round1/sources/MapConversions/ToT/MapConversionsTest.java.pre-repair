@@ -1,0 +1,667 @@
+package com.cedarsoftware.util.convert;
+
+import org.junit.Before;
+import org.junit.Test;
+
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.net.URI;
+import java.net.URL;
+import java.sql.Timestamp;
+import java.time.*;
+import java.util.*;
+
+import static org.junit.Assert.*;
+
+/**
+ * Comprehensive JUnit‑4 test suite for {@link MapConversions}.
+ * <p>
+ * The tests are written in the same package as {@code MapConversions} so that
+ * package‑private static methods can be accessed directly.
+ * </p>
+ */
+public class MapConversionsTest {
+
+    private Converter converter;
+
+    @Before
+    public void setUp() {
+        // ConverterOptions has a public no‑arg constructor in the library.
+        ConverterOptions options = new ConverterOptions();
+        converter = new Converter(options);
+    }
+
+    /* --------------------------------------------------------------------- */
+    /* Helper methods                                                       */
+    /* --------------------------------------------------------------------- */
+
+    /** Creates a mutable {@link CompactMap} and puts the supplied entries. */
+    @SafeVarargs
+    private final Map<String, Object> mapOf(Object... keyValues) {
+        assertEquals("Even number of arguments required", 0, keyValues.length % 2);
+        Map<String, Object> map = CompactMap.<String, Object>builder().insertionOrder().build();
+        for (int i = 0; i < keyValues.length; i += 2) {
+            map.put((String) keyValues[i], keyValues[i + 1]);
+        }
+        return map;
+    }
+
+    /** Shortcut to call a private helper via reflection (used only for error‑message checks). */
+    private String invokeFromMap(Object map, Class<?> target, String... keySets) {
+        try {
+            java.lang.reflect.Method m = MapConversions.class
+                    .getDeclaredMethod("fromMap", Object.class, Converter.class, Class.class, String[][].class);
+            m.setAccessible(true);
+            return assertThrows(IllegalArgumentException.class,
+                    () -> m.invoke(null, map, converter, target, (Object) new String[][]{keySets}))
+                    .getCause().getMessage();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    /* --------------------------------------------------------------------- */
+    /* UUID conversion                                                       */
+    /* --------------------------------------------------------------------- */
+
+    @Test
+    public void testToUUID_WithUuidString() {
+        UUID expected = UUID.randomUUID();
+        Map<String, Object> map = mapOf(MapConversions.UUID, expected.toString());
+        Object result = MapConversions.toUUID(map, converter);
+        assertTrue(result instanceof UUID);
+        assertEquals(expected, result);
+    }
+
+    @Test
+    public void testToUUID_WithMostAndLeastSigBits() {
+        long most = 0x1234567890ABCDEFL;
+        long least = 0x0FEDCBA098765432L;
+        Map<String, Object> map = mapOf(MapConversions.MOST_SIG_BITS, most, MapConversions.LEAST_SIG_BITS, least);
+        UUID result = (UUID) MapConversions.toUUID(map, converter);
+        assertEquals(new UUID(most, least), result);
+    }
+
+    @Test
+    public void testToUUID_MissingAllKeys() {
+        Map<String, Object> empty = mapOf();
+        try {
+            MapConversions.toUUID(empty, converter);
+            fail("Expected IllegalArgumentException");
+        } catch (IllegalArgumentException ex) {
+            assertTrue(ex.getMessage().contains("UUID"));
+        }
+    }
+
+    /* --------------------------------------------------------------------- */
+    /* Primitive wrapper conversions                                         */
+    /* --------------------------------------------------------------------- */
+
+    @Test
+    public void testToByte_SimpleValue() {
+        Map<String, Object> map = mapOf(MapConversions.VALUE, (byte) 7);
+        assertEquals(Byte.valueOf((byte) 7), MapConversions.toByte(map, converter));
+    }
+
+    @Test
+    public void testToInt_MissingValue() {
+        Map<String, Object> map = mapOf();
+        try {
+            MapConversions.toInt(map, converter);
+            fail("Expected IllegalArgumentException");
+        } catch (IllegalArgumentException ex) {
+            assertTrue(ex.getMessage().contains("[value]"));
+        }
+    }
+
+    @Test
+    public void testToLong_WithValueKey() {
+        long expected = 123456789L;
+        Map<String, Object> map = mapOf(MapConversions.VALUE, expected);
+        assertEquals(Long.valueOf(expected), MapConversions.toLong(map, converter));
+    }
+
+    @Test
+    public void testToFloat_FromString() {
+        Map<String, Object> map = mapOf(MapConversions.VALUE, "3.14");
+        assertEquals(Float.valueOf(3.14f), MapConversions.toFloat(map, converter));
+    }
+
+    @Test
+    public void testToDouble_FromNumber() {
+        Map<String, Object> map = mapOf(MapConversions.VALUE, 2.71828);
+        assertEquals(Double.valueOf(2.71828), MapConversions.toDouble(map, converter));
+    }
+
+    @Test
+    public void testToBoolean_TrueString() {
+        Map<String, Object> map = mapOf(MapConversions.VALUE, "true");
+        assertEquals(Boolean.TRUE, MapConversions.toBoolean(map, converter));
+    }
+
+    @Test
+    public void testToBigDecimal_FromString() {
+        Map<String, Object> map = mapOf(MapConversions.VALUE, "12345.6789");
+        assertEquals(new BigDecimal("12345.6789"), MapConversions.toBigDecimal(map, converter));
+    }
+
+    @Test
+    public void testToBigInteger_FromLong() {
+        Map<String, Object> map = mapOf(MapConversions.VALUE, 987654321L);
+        assertEquals(BigInteger.valueOf(987654321L), MapConversions.toBigInteger(map, converter));
+    }
+
+    @Test
+    public void testToString_FromCharSequence() {
+        Map<String, Object> map = mapOf(MapConversions.VALUE, new StringBuilder("hello"));
+        assertEquals("hello", MapConversions.toString(map, converter));
+    }
+
+    @Test
+    public void testToStringBuffer_FromString() {
+        Map<String, Object> map = mapOf(MapConversions.VALUE, "buffer");
+        assertEquals(new StringBuffer("buffer"), MapConversions.toStringBuffer(map, converter));
+    }
+
+    @Test
+    public void testToStringBuilder_FromCharArray() {
+        Map<String, Object> map = mapOf(MapConversions.VALUE, new char[]{'a', 'b', 'c'});
+        assertEquals(new StringBuilder("abc"), MapConversions.toStringBuilder(map, converter));
+    }
+
+    @Test
+    public void testToCharacter_FromString() {
+        Map<String, Object> map = mapOf(MapConversions.VALUE, "Z");
+        assertEquals(Character.valueOf('Z'), MapConversions.toCharacter(map, converter));
+    }
+
+    @Test
+    public void testToAtomicInteger_FromInt() {
+        Map<String, Object> map = mapOf(MapConversions.VALUE, 42);
+        assertEquals(new AtomicInteger(42), MapConversions.toAtomicInteger(map, converter));
+    }
+
+    @Test
+    public void testToAtomicLong_FromLong() {
+        Map<String, Object> map = mapOf(MapConversions.VALUE, 123456789L);
+        assertEquals(new AtomicLong(123456789L), MapConversions.toAtomicLong(map, converter));
+    }
+
+    @Test
+    public void testToAtomicBoolean_FromBoolean() {
+        Map<String, Object> map = mapOf(MapConversions.VALUE, true);
+        assertEquals(new AtomicBoolean(true), MapConversions.toAtomicBoolean(map, converter));
+    }
+
+    /* --------------------------------------------------------------------- */
+    /* Date / Timestamp conversions                                         */
+    /* --------------------------------------------------------------------- */
+
+    @Test
+    public void testToDate_FromEpochMillis() {
+        long epoch = System.currentTimeMillis();
+        Map<String, Object> map = mapOf(MapConversions.EPOCH_MILLIS, epoch);
+        Date result = MapConversions.toDate(map, converter);
+        assertEquals(epoch, result.getTime());
+    }
+
+    @Test
+    public void testToDate_FromDateTimeComponents() {
+        // 2022‑03‑14 15:09:26.123 in UTC
+        Map<String, Object> map = mapOf(
+                MapConversions.DATE, "2022-03-14",
+                MapConversions.TIME, "15:09:26.123",
+                MapConversions.ZONE, "UTC"
+        );
+        Date result = MapConversions.toDate(map, converter);
+        Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
+        cal.set(2022, Calendar.MARCH, 14, 15, 9, 26);
+        cal.set(Calendar.MILLISECOND, 123);
+        assertEquals(cal.getTimeInMillis(), result.getTime());
+    }
+
+    @Test
+    public void testToTimestamp_FromEpochMillisAndNanos() {
+        long epoch = 1609459200123L; // 2021‑01‑01T00:00:00.123Z
+        int nanos = 456_789_000;
+        Map<String, Object> map = mapOf(
+                MapConversions.EPOCH_MILLIS, epoch,
+                MapConversions.NANOS, nanos
+        );
+        Timestamp ts = MapConversions.toTimestamp(map, converter);
+        assertEquals(epoch, ts.getTime());
+        assertEquals(nanos, ts.getNanos());
+    }
+
+    @Test
+    public void testToTimestamp_FromValueNumber() {
+        long epoch = 1620000000000L;
+        Map<String, Object> map = mapOf(MapConversions.VALUE, epoch);
+        Timestamp ts = MapConversions.toTimestamp(map, converter);
+        assertEquals(epoch, ts.getTime());
+        assertEquals(0, ts.getNanos());
+    }
+
+    @Test
+    public void testToTimestamp_FromValueStringNonIso() {
+        String epochStr = "1620000000000";
+        Map<String, Object> map = mapOf(MapConversions.VALUE, epochStr);
+        Timestamp ts = MapConversions.toTimestamp(map, converter);
+        assertEquals(Long.parseLong(epochStr), ts.getTime());
+    }
+
+    @Test
+    public void testToTimestamp_WithDateTimeComponentsAndNanos() {
+        Map<String, Object> map = mapOf(
+                MapConversions.DATE, "1970-01-01",
+                MapConversions.TIME, "00:00:00.123456789",
+                MapConversions.ZONE, "UTC"
+        );
+        Timestamp ts = MapConversions.toTimestamp(map, converter);
+        assertEquals(0L, ts.getTime()); // epoch millis part is zero
+        assertEquals(123_456_789, ts.getNanos());
+    }
+
+    @Test
+    public void testToTimestamp_MissingAllKeys() {
+        Map<String, Object> map = mapOf();
+        try {
+            MapConversions.toTimestamp(map, converter);
+            fail("Expected IllegalArgumentException");
+        } catch (IllegalArgumentException ex) {
+            assertTrue(ex.getMessage().contains("Timestamp"));
+        }
+    }
+
+    /* --------------------------------------------------------------------- */
+    /* TimeZone / Calendar conversion                                       */
+    /* --------------------------------------------------------------------- */
+
+    @Test
+    public void testToTimeZone_FromZoneIdString() {
+        Map<String, Object> map = mapOf(MapConversions.ZONE, "America/New_York");
+        TimeZone tz = MapConversions.toTimeZone(map, converter);
+        assertEquals(TimeZone.getTimeZone("America/New_York"), tz);
+    }
+
+    @Test
+    public void testToCalendar_FromEpochMillis() {
+        long epoch = 1234567890123L;
+        Map<String, Object> map = mapOf(MapConversions.EPOCH_MILLIS, epoch);
+        Calendar cal = MapConversions.toCalendar(map, converter);
+        assertEquals(epoch, cal.getTimeInMillis());
+    }
+
+    @Test
+    public void testToCalendar_FromDateTimeComponents() {
+        Map<String, Object> map = mapOf(
+                MapConversions.DATE, "2020-02-29",
+                MapConversions.TIME, "23:59:59.999",
+                MapConversions.ZONE, "UTC"
+        );
+        Calendar cal = MapConversions.toCalendar(map, converter);
+        Calendar expected = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
+        expected.set(2020, Calendar.FEBRUARY, 29, 23, 59, 59);
+        expected.set(Calendar.MILLISECOND, 999);
+        assertEquals(expected.getTimeInMillis(), cal.getTimeInMillis());
+    }
+
+    @Test
+    public void testToCalendar_MissingAllKeys() {
+        Map<String, Object> map = mapOf();
+        try {
+            MapConversions.toCalendar(map, converter);
+            fail("Expected IllegalArgumentException");
+        } catch (IllegalArgumentException ex) {
+            assertTrue(ex.getMessage().contains("Calendar"));
+        }
+    }
+
+    /* --------------------------------------------------------------------- */
+    /* Locale conversion                                                     */
+    /* --------------------------------------------------------------------- */
+
+    @Test
+    public void testToLocale_FullSpecification() {
+        Map<String, String> map = new CompactMap<>();
+        map.put(MapConversions.LANGUAGE, "en");
+        map.put(MapConversions.COUNTRY, "US");
+        map.put(MapConversions.SCRIPT, "Latn");
+        map.put(MapConversions.VARIANT, "POSIX");
+        Locale loc = MapConversions.toLocale(map, converter);
+        assertEquals(Locale.forLanguageTag("en-US-Latn-POSIX"), loc);
+    }
+
+    @Test
+    public void testToLocale_MissingLanguage() {
+        Map<String, String> map = new CompactMap<>();
+        map.put(MapConversions.COUNTRY, "US");
+        try {
+            MapConversions.toLocale(map, converter);
+            fail("Expected IllegalArgumentException");
+        } catch (IllegalArgumentException ex) {
+            assertTrue(ex.getMessage().contains("Locale"));
+        }
+    }
+
+    /* --------------------------------------------------------------------- */
+    /* LocalDate / LocalTime conversion                                      */
+    /* --------------------------------------------------------------------- */
+
+    @Test
+    public void testToLocalDate_FromComponents() {
+        Map<String, Object> map = mapOf(
+                MapConversions.YEAR, 2021,
+                MapConversions.MONTH, 12,
+                MapConversions.DAY, 25
+        );
+        LocalDate ld = MapConversions.toLocalDate(map, converter);
+        assertEquals(LocalDate.of(2021, 12, 25), ld);
+    }
+
+    @Test
+    public void testToLocalDate_FromDateString() {
+        Map<String, Object> map = mapOf(MapConversions.DATE, "2022-01-01");
+        LocalDate ld = MapConversions.toLocalDate(map, converter);
+        assertEquals(LocalDate.of(2022, 1, 1), ld);
+    }
+
+    @Test
+    public void testToLocalTime_FromComponents() {
+        Map<String, Object> map = mapOf(
+                MapConversions.HOUR, 13,
+                MapConversions.MINUTE, 45,
+                MapConversions.SECOND, 30,
+                MapConversions.NANOS, 123_456_789
+        );
+        LocalTime lt = MapConversions.toLocalTime(map, converter);
+        assertEquals(LocalTime.of(13, 45, 30, 123_456_789), lt);
+    }
+
+    @Test
+    public void testToLocalTime_FromTimeString() {
+        Map<String, Object> map = mapOf(MapConversions.TIME, "08:15:00");
+        LocalTime lt = MapConversions.toLocalTime(map, converter);
+        assertEquals(LocalTime.of(8, 15), lt);
+    }
+
+    /* --------------------------------------------------------------------- */
+    /* OffsetTime / OffsetDateTime conversion                                 */
+    /* --------------------------------------------------------------------- */
+
+    @Test
+    public void testToOffsetTime_WithExplicitOffset() {
+        Map<String, Object> map = mapOf(
+                MapConversions.HOUR, 9,
+                MapConversions.MINUTE, 30,
+                MapConversions.OFFSET_HOUR, -5,
+                MapConversions.OFFSET_MINUTE, 0
+        );
+        OffsetTime ot = MapConversions.toOffsetTime(map, converter);
+        assertEquals(OffsetTime.of(9, 30, 0, 0, ZoneOffset.ofHours(-5)), ot);
+    }
+
+    @Test
+    public void testToOffsetTime_FromTimeString() {
+        Map<String, Object> map = mapOf(MapConversions.TIME, "12:00+02:00");
+        OffsetTime ot = MapConversions.toOffsetTime(map, converter);
+        assertEquals(OffsetTime.parse("12:00+02:00"), ot);
+    }
+
+    @Test
+    public void testToOffsetDateTime_WithDateAndOffset() {
+        Map<String, Object> map = mapOf(
+                MapConversions.DATE, "2020-05-20",
+                MapConversions.TIME, "14:30:15",
+                MapConversions.OFFSET, "+03:00"
+        );
+        OffsetDateTime odt = MapConversions.toOffsetDateTime(map, converter);
+        assertEquals(OffsetDateTime.of(2020, 5, 20, 14, 30, 15, 0, ZoneOffset.ofHours(3)), odt);
+    }
+
+    @Test
+    public void testToOffsetDateTime_WithOnlyTimeAndOffset() {
+        Map<String, Object> map = mapOf(
+                MapConversions.TIME, "08:00",
+                MapConversions.OFFSET, "-02:00"
+        );
+        OffsetDateTime odt = MapConversions.toOffsetDateTime(map, converter);
+        assertEquals(OffsetDateTime.of(LocalDate.now(converter.getOptions().getZoneId()),
+                LocalTime.of(8, 0), ZoneOffset.ofHours(-2)), odt);
+    }
+
+    /* --------------------------------------------------------------------- */
+    /* LocalDateTime / ZonedDateTime conversion                              */
+    /* --------------------------------------------------------------------- */
+
+    @Test
+    public void testToLocalDateTime_WithDateOnly() {
+        Map<String, Object> map = mapOf(MapConversions.DATE, "2021-07-04");
+        LocalDateTime ldt = MapConversions.toLocalDateTime(map, converter);
+        assertEquals(LocalDateTime.of(2021, 7, 4, 0, 0), ldt);
+    }
+
+    @Test
+    public void testToLocalDateTime_WithDateAndTime() {
+        Map<String, Object> map = mapOf(
+                MapConversions.DATE, "2021-07-04",
+                MapConversions.TIME, "12:34:56"
+        );
+        LocalDateTime ldt = MapConversions.toLocalDateTime(map, converter);
+        assertEquals(LocalDateTime.of(2021, 7, 4, 12, 34, 56), ldt);
+    }
+
+    @Test
+    public void testToZonedDateTime_FromEpochMillis() {
+        long epoch = 1609459200000L; // 2021‑01‑01T00:00:00Z
+        Map<String, Object> map = mapOf(MapConversions.EPOCH_MILLIS, epoch);
+        ZonedDateTime zdt = MapConversions.toZonedDateTime(map, converter);
+        assertEquals(ZonedDateTime.ofInstant(Instant.ofEpochMilli(epoch), ZoneOffset.UTC), zdt);
+    }
+
+    @Test
+    public void testToZonedDateTime_FromComponents() {
+        Map<String, Object> map = mapOf(
+                MapConversions.DATE, "2022-12-31",
+                MapConversions.TIME, "23:59:59",
+                MapConversions.ZONE, "Europe/Paris"
+        );
+        ZonedDateTime zdt = MapConversions.toZonedDateTime(map, converter);
+        assertEquals(ZonedDateTime.of(2022, 12, 31, 23, 59, 59, 0,
+                ZoneId.of("Europe/Paris")), zdt);
+    }
+
+    /* --------------------------------------------------------------------- */
+    /* Class / URL / URI conversion                                          */
+    /* --------------------------------------------------------------------- */
+
+    @Test
+    public void testToClass_FromString() {
+        Map<String, Object> map = mapOf(MapConversions.VALUE, "java.lang.String");
+        Class<?> cls = MapConversions.toClass(map, converter);
+        assertEquals(String.class, cls);
+    }
+
+    @Test
+    public void testToURL_FromString() throws Exception {
+        String urlString = "https://example.com/path?query=1";
+        Map<String, Object> map = mapOf(MapConversions.URL_KEY, urlString);
+        URL url = MapConversions.toURL(map, converter);
+        assertEquals(new URL(urlString), url);
+    }
+
+    @Test
+    public void testToURI_FromString() throws Exception {
+        String uriString = "urn:example:test";
+        Map<String, Object> map = mapOf(MapConversions.URI_KEY, uriString);
+        URI uri = MapConversions.toURI(map, converter);
+        assertEquals(new URI(uriString), uri);
+    }
+
+    /* --------------------------------------------------------------------- */
+    /* Duration / Instant / Period / MonthDay / YearMonth / Year conversion   */
+    /* --------------------------------------------------------------------- */
+
+    @Test
+    public void testToDuration_FromSecondsAndNanos() {
+        Map<String, Object> map = mapOf(
+                MapConversions.SECONDS, 5,
+                MapConversions.NANOS, 250_000_000
+        );
+        Duration d = MapConversions.toDuration(map, converter);
+        assertEquals(Duration.ofSeconds(5, 250_000_000), d);
+    }
+
+    @Test
+    public void testToInstant_FromSecondsAndNanos() {
+        Map<String, Object> map = mapOf(
+                MapConversions.SECONDS, 10L,
+                MapConversions.NANOS, 500L
+        );
+        Instant i = MapConversions.toInstant(map, converter);
+        assertEquals(Instant.ofEpochSecond(10L, 500L), i);
+    }
+
+    @Test
+    public void testToMonthDay_FromComponents() {
+        Map<String, Object> map = mapOf(
+                MapConversions.MONTH, 2,
+                MapConversions.DAY, 29
+        );
+        MonthDay md = MapConversions.toMonthDay(map, converter);
+        assertEquals(MonthDay.of(2, 29), md);
+    }
+
+    @Test
+    public void testToYearMonth_FromComponents() {
+        Map<String, Object> map = mapOf(
+                MapConversions.YEAR, 2023,
+                MapConversions.MONTH, 4
+        );
+        YearMonth ym = MapConversions.toYearMonth(map, converter);
+        assertEquals(YearMonth.of(2023, 4), ym);
+    }
+
+    @Test
+    public void testToPeriod_FromComponents() {
+        Map<String, Object> map = mapOf(
+                MapConversions.YEARS, 1,
+                MapConversions.MONTHS, 2,
+                MapConversions.DAYS, 15
+        );
+        Period p = MapConversions.toPeriod(map, converter);
+        assertEquals(Period.of(1, 2, 15), p);
+    }
+
+    @Test
+    public void testToPeriod_FromValueOrVKey() {
+        Map<String, Object> map = mapOf(MapConversions.VALUE, "P2Y3M4D");
+        Period p = MapConversions.toPeriod(map, converter);
+        assertEquals(Period.of(2, 3, 4), p);
+    }
+
+    @Test
+    public void testToZoneId_FromZoneKey() {
+        Map<String, Object> map = mapOf(MapConversions.ZONE, "Asia/Tokyo");
+        ZoneId zid = MapConversions.toZoneId(map, converter);
+        assertEquals(ZoneId.of("Asia/Tokyo"), zid);
+    }
+
+    @Test
+    public void testToZoneId_FromIdKey() {
+        Map<String, Object> map = mapOf(MapConversions.ID, "Europe/London");
+        ZoneId zid = MapConversions.toZoneId(map, converter);
+        assertEquals(ZoneId.of("Europe/London"), zid);
+    }
+
+    @Test
+    public void testToZoneOffset_FromHoursMinutesSeconds() {
+        Map<String, Object> map = mapOf(
+                MapConversions.HOURS, -4,
+                MapConversions.MINUTES, 30,
+                MapConversions.SECONDS, 15
+        );
+        ZoneOffset zo = MapConversions.toZoneOffset(map, converter);
+        assertEquals(ZoneOffset.ofHoursMinutesSeconds(-4, 30, 15), zo);
+    }
+
+    @Test
+    public void testToYear_FromYearKey() {
+        Map<String, Object> map = mapOf(MapConversions.YEAR, 1999);
+        Year y = MapConversions.toYear(map, converter);
+        assertEquals(Year.of(1999), y);
+    }
+
+    /* --------------------------------------------------------------------- */
+    /* Throwable conversion                                                  */
+    /* --------------------------------------------------------------------- */
+
+    @Test
+    public void testToThrowable_WithMessageAndCause() {
+        Map<String, Object> map = mapOf(
+                MapConversions.CLASS, "java.lang.Exception",
+                MapConversions.MESSAGE, "Top level",
+                MapConversions.CAUSE, "java.lang.IllegalArgumentException",
+                MapConversions.CAUSE_MESSAGE, "Root cause"
+        );
+        Throwable t = MapConversions.toThrowable(map, converter, Exception.class);
+        assertTrue(t instanceof Exception);
+        assertEquals("Top level", t.getMessage());
+        assertNotNull(t.getCause());
+        assertEquals("Root cause", t.getCause().getMessage());
+        assertEquals(0, t.getStackTrace().length);
+    }
+
+    @Test
+    public void testToThrowable_WithInvalidClassFallsBackToTarget() {
+        Map<String, Object> map = mapOf(
+                MapConversions.CLASS, "com.nonexistent.FakeException",
+                MapConversions.MESSAGE, "fallback"
+        );
+        Throwable t = MapConversions.toThrowable(map, converter, IllegalStateException.class);
+        assertTrue(t instanceof IllegalStateException);
+        assertEquals("fallback", t.getMessage());
+    }
+
+    /* --------------------------------------------------------------------- */
+    /* initMap and private fromMap error handling                           */
+    /* --------------------------------------------------------------------- */
+
+    @Test
+    public void testInitMap_ContainsVKey() {
+        Map<String, ?> result = MapConversions.initMap("payload", converter);
+        assertTrue(result.containsKey(MapConversions.V));
+        assertEquals("payload", result.get(MapConversions.V));
+    }
+
+    @Test
+    public void testFromMap_ErrorMessageFormatting() {
+        Map<String, Object> map = mapOf();
+        String message = invokeFromMap(map, Byte.class, MapConversions.VALUE);
+        assertTrue(message.contains("To convert from Map to 'Byte'"));
+        assertTrue(message.contains("[value]"));
+        assertTrue(message.contains("[_v]"));
+    }
+
+    /* --------------------------------------------------------------------- */
+    /* Edge cases for numeric conversion (overflow, null handling)          */
+    /* --------------------------------------------------------------------- */
+
+    @Test
+    public void testToByte_NullValueIsRejected() {
+        Map<String, Object> map = mapOf(MapConversions.VALUE, null);
+        try {
+            MapConversions.toByte(map, converter);
+            fail("Expected IllegalArgumentException due to null value");
+        } catch (IllegalArgumentException e) {
+            assertTrue(e.getMessage().contains("[value]"));
+        }
+    }
+
+    @Test
+    public void testToLong_WithStringNumber() {
+        Map<String, Object> map = mapOf(MapConversions.VALUE, "9876543210");
+        Long result = MapConversions.toLong(map, converter);
+        assertEquals(Long.valueOf(9876543210L), result);
+    }
+}

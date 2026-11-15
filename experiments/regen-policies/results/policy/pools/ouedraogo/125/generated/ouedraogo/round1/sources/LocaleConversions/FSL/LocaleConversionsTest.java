@@ -1,0 +1,187 @@
+package com.cedarsoftware.util.convert;
+import com.cedarsoftware.util.CompactMap;
+
+
+import static org.junit.Assert.*;
+
+import java.util.Locale;
+import java.util.Map;
+
+import org.junit.Test;
+
+/**
+ * Unit tests for {@link LocaleConversions}.
+ * These tests cover both {@code toString} and {@code toMap} methods,
+ * exercising a variety of {@link Locale} configurations to ensure
+ * that language, country, script and variant are handled correctly.
+ */
+public class LocaleConversionsTest {
+
+    // A minimal Converter instance – the methods under test do not use it.
+    private static final Converter DUMMY_CONVERTER = new Converter(null);
+
+    // -----------------------------------------------------------------------
+    // toString(..) tests
+    // -----------------------------------------------------------------------
+
+    @Test
+    public void testToStringSimpleLanguage() {
+        Locale locale = Locale.ENGLISH;                 // "en"
+        String tag = LocaleConversions.toString(locale, DUMMY_CONVERTER);
+        assertEquals("en", tag);
+    }
+
+    @Test
+    public void testToStringLanguageAndCountry() {
+        Locale locale = new Locale("en", "US");         // "en-US"
+        String tag = LocaleConversions.toString(locale, DUMMY_CONVERTER);
+        assertEquals("en-US", tag);
+    }
+
+    @Test
+    public void testToStringLanguageScriptAndCountry() {
+        Locale locale = new Locale.Builder()
+                .setLanguage("zh")
+                .setScript("Hans")
+                .setRegion("CN")
+                .build();                               // "zh-Hans-CN"
+        String tag = LocaleConversions.toString(locale, DUMMY_CONVERTER);
+        assertEquals("zh-Hans-CN", tag);
+    }
+
+    @Test
+    public void testToStringAllComponents() {
+        Locale locale = new Locale.Builder()
+                .setLanguage("sl")
+                .setScript("Latn")
+                .setRegion("SI")
+                .setVariant("rozaj")
+                .build();                               // "sl-Latn-SI-rozaj"
+        String tag = LocaleConversions.toString(locale, DUMMY_CONVERTER);
+        assertEquals("sl-Latn-SI-rozaj", tag);
+    }
+
+    // -----------------------------------------------------------------------
+    // toMap(..) tests
+    // -----------------------------------------------------------------------
+
+    @Test
+    public void testToMapOnlyLanguage() {
+        Locale locale = Locale.FRENCH; // language = "fr"
+        Map<?, ?> map = LocaleConversions.toMap(locale, DUMMY_CONVERTER);
+
+        assertTrue(map instanceof CompactMap);
+        assertEquals(1, map.size());
+        assertEquals("fr", map.get(LANGUAGE));
+        assertNull(map.get(COUNTRY));
+        assertNull(map.get(SCRIPT));
+        assertNull(map.get(VARIANT));
+    }
+
+    @Test
+    public void testToMapLanguageAndCountry() {
+        Locale locale = new Locale("de", "DE"); // language = "de", country = "DE"
+        Map<?, ?> map = LocaleConversions.toMap(locale, DUMMY_CONVERTER);
+
+        assertEquals(2, map.size());
+        assertEquals("de", map.get(LANGUAGE));
+        assertEquals("DE", map.get(COUNTRY));
+        assertNull(map.get(SCRIPT));
+        assertNull(map.get(VARIANT));
+    }
+
+    @Test
+    public void testToMapLanguageAndScript() {
+        Locale locale = new Locale.Builder()
+                .setLanguage("sr")
+                .setScript("Latn")
+                .build(); // language = "sr", script = "Latn"
+        Map<?, ?> map = LocaleConversions.toMap(locale, DUMMY_CONVERTER);
+
+        assertEquals(2, map.size());
+        assertEquals("sr", map.get(LANGUAGE));
+        assertEquals("Latn", map.get(SCRIPT));
+        assertNull(map.get(COUNTRY));
+        assertNull(map.get(VARIANT));
+    }
+
+    @Test
+    public void testToMapLanguageCountryAndVariant() {
+        Locale locale = new Locale("en", "GB", "POSIX"); // language = "en", country = "GB", variant = "POSIX"
+        Map<?, ?> map = LocaleConversions.toMap(locale, DUMMY_CONVERTER);
+
+        assertEquals(3, map.size());
+        assertEquals("en", map.get(LANGUAGE));
+        assertEquals("GB", map.get(COUNTRY));
+        assertEquals("POSIX", map.get(VARIANT));
+        assertNull(map.get(SCRIPT));
+    }
+
+    @Test
+    public void testToMapAllFieldsPresent() {
+        Locale locale = new Locale.Builder()
+                .setLanguage("sl")
+                .setScript("Latn")
+                .setRegion("SI")
+                .setVariant("rozaj")
+                .build(); // language = "sl", script = "Latn", country = "SI", variant = "rozaj"
+        Map<?, ?> map = LocaleConversions.toMap(locale, DUMMY_CONVERTER);
+
+        assertEquals(4, map.size());
+        assertEquals("sl", map.get(LANGUAGE));
+        assertEquals("SI", map.get(COUNTRY));
+        assertEquals("Latn", map.get(SCRIPT));
+        assertEquals("rozaj", map.get(VARIANT));
+    }
+
+    @Test
+    public void testToMapEmptyCountryAndVariantAreOmitted() {
+        // Locale with empty country and variant (both are empty strings)
+        Locale locale = new Locale.Builder()
+                .setLanguage("en")
+                .setScript("Latn")
+                .setRegion("")   // empty country
+                .setVariant("")  // empty variant
+                .build();
+        Map<?, ?> map = LocaleConversions.toMap(locale, DUMMY_CONVERTER);
+
+        // Country and Variant should not appear because they have no content.
+        assertEquals(2, map.size());
+        assertEquals("en", map.get(LANGUAGE));
+        assertEquals("Latn", map.get(SCRIPT));
+        assertNull(map.get(COUNTRY));
+        assertNull(map.get(VARIANT));
+    }
+
+    @Test
+    public void testToMapInsertionOrderPreserved() {
+        // Build a locale with language, script, country, variant – insertion order
+        // in CompactMap.builder().insertionOrder() should be the order we add entries.
+        Locale locale = new Locale.Builder()
+                .setLanguage("ja")
+                .setScript("Jpan")
+                .setRegion("JP")
+                .setVariant("JP")
+                .build();
+        Map<?, ?> map = LocaleConversions.toMap(locale, DUMMY_CONVERTER);
+
+        // Verify the order by iterating over entrySet()
+        Object[] keys = map.keySet().toArray();
+        assertArrayEquals(new Object[]{LANGUAGE, COUNTRY, SCRIPT, VARIANT},
+                keys);
+    }
+
+    @Test
+    public void testToMapWithRootLocale() {
+        // The root locale has empty language, country, script, variant.
+        Locale locale = Locale.ROOT;
+        Map<?, ?> map = LocaleConversions.toMap(locale, DUMMY_CONVERTER);
+
+        // Only the language key (empty string) is added.
+        assertEquals(1, map.size());
+        assertEquals("", map.get(LANGUAGE));
+        assertNull(map.get(COUNTRY));
+        assertNull(map.get(SCRIPT));
+        assertNull(map.get(VARIANT));
+    }
+}

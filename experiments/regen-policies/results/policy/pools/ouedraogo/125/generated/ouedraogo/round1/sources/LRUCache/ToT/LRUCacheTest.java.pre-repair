@@ -1,0 +1,324 @@
+package com.cedarsoftware.util;
+
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+
+import java.util.*;
+
+import static org.junit.Assert.*;
+
+/**
+ * Comprehensive JUnit‑4 test suite for {@link LRUCache}.
+ *
+ * <p>The tests cover:
+ * <ul>
+ *   <li>Construction with all three public constructors (locking, threaded, threaded with custom delay).</li>
+ *   <li>All {@link Map} delegate methods (get, put, putAll, remove, clear, size, isEmpty,
+ *       containsKey, containsValue, entrySet, keySet, values, toString, hashCode, equals).</li>
+ *   <li>Null‑key and null‑value handling (allowed by the cache).</li>
+ *   <li>Capacity enforcement for both strategies (locking – immediate, threaded – after a short wait).</li>
+ *   <li>The {@code shutdown()} method for both strategies.</li>
+ * </ul>
+ *
+ * <p>Only the public API shown in the source code is used – no mocking or subclassing of library
+ * classes.
+ */
+public class LRUCacheTest {
+
+    private static final int CAPACITY = 3;
+    private static final int CLEANUP_DELAY = 20; // ms, must be >0 for threaded tests
+
+    private LRUCache<String, Integer> lockingCache;
+    private LRUCache<String, Integer> threadedCache;
+    private LRUCache<String, Integer> threadedCacheWithCustomDelay;
+
+    @Before
+    public void setUp() {
+        // locking strategy (default constructor)
+        lockingCache = new LRUCache<>(CAPACITY);
+
+        // threaded strategy using enum constructor
+        threadedCache = new LRUCache<>(CAPACITY, LRUCache.StrategyType.THREADED);
+
+        // threaded strategy with explicit cleanup delay
+        threadedCacheWithCustomDelay = new LRUCache<>(CAPACITY, CLEANUP_DELAY);
+    }
+
+    @After
+    public void tearDown() {
+        // Ensure any background threads are shut down after each test
+        if (lockingCache != null) lockingCache.shutdown();
+        if (threadedCache != null) threadedCache.shutdown();
+        if (threadedCacheWithCustomDelay != null) threadedCacheWithCustomDelay.shutdown();
+    }
+
+    /* -----------------------------------------------------------------------
+     *  Basic Map operations – same for all strategies, exercised on each cache.
+     * ----------------------------------------------------------------------- */
+
+    @Test
+    public void testPutAndGet() {
+        for (LRUCache<String, Integer> cache : caches()) {
+            assertNull(cache.put("a", 1));
+            assertEquals(Integer.valueOf(1), cache.get("a"));
+            // overwrite existing key
+            assertEquals(Integer.valueOf(1), cache.put("a", 2));
+            assertEquals(Integer.valueOf(2), cache.get("a"));
+        }
+    }
+
+    @Test
+    public void testPutAll() {
+        Map<String, Integer> source = new HashMap<>();
+        source.put("x", 10);
+        source.put("y", 20);
+        source.put("z", 30);
+
+        for (LRUCache<String, Integer> cache : caches()) {
+            cache.putAll(source);
+            assertEquals(3, cache.size());
+            assertTrue(cache.containsKey("x"));
+            assertTrue(cache.containsKey("y"));
+            assertTrue(cache.containsKey("z"));
+            assertEquals(Integer.valueOf(10), cache.get("x"));
+            assertEquals(Integer.valueOf(20), cache.get("y"));
+            assertEquals(Integer.valueOf(30), cache.get("z"));
+        }
+    }
+
+    @Test
+    public void testRemove() {
+        for (LRUCache<String, Integer> cache : caches()) {
+            cache.put("k1", 100);
+            cache.put("k2", 200);
+            assertEquals(Integer.valueOf(100), cache.remove("k1"));
+            assertNull(cache.get("k1"));
+            assertFalse(cache.containsKey("k1"));
+            assertTrue(cache.containsKey("k2"));
+            assertEquals(1, cache.size());
+        }
+    }
+
+    @Test
+    public void testClear() {
+        for (LRUCache<String, Integer> cache : caches()) {
+            cache.put("a", 1);
+            cache.put("b", 2);
+            cache.clear();
+            assertTrue(cache.isEmpty());
+            assertEquals(0, cache.size());
+        }
+    }
+
+    @Test
+    public void testSizeAndIsEmpty() {
+        for (LRUCache<String, Integer> cache : caches()) {
+            assertTrue(cache.isEmpty());
+            assertEquals(0, cache.size());
+
+            cache.put("one", 1);
+            assertFalse(cache.isEmpty());
+            assertEquals(1, cache.size());
+
+            cache.put("two", 2);
+            cache.put("three", 3);
+            assertEquals(3, cache.size());
+
+            // after reaching capacity, size stays at capacity (LRU eviction)
+            cache.put("four", 4);
+            // Locking strategy evicts immediately
+            // Threaded strategy may delay eviction – we wait a little for cleanup
+            waitForThreadedCleanupIfNeeded(cache);
+            assertEquals(CAPACITY, cache.size());
+        }
+    }
+
+    @Test
+    public void testContainsKeyAndContainsValue() {
+        for (LRUCache<String, Integer> cache : caches()) {
+            cache.put("alpha", 1);
+            cache.put("beta", 2);
+            assertTrue(cache.containsKey("alpha"));
+            assertTrue(cache.containsKey("beta"));
+            assertFalse(cache.containsKey("gamma"));
+
+            assertTrue(cache.containsValue(1));
+            assertTrue(cache.containsValue(2));
+            assertFalse(cache.containsValue(3));
+        }
+    }
+
+    @Test
+    public void testEntrySetKeySetAndValues() {
+        for (LRUCache<String, Integer> cache : caches()) {
+            cache.put("k1", 10);
+            cache.put("k2", 20);
+            cache.put("k3", 30);
+
+            Set<Map.Entry<String, Integer>> entrySet = cache.entrySet();
+            assertEquals(3, entrySet.size());
+            for (Map.Entry<String, Integer> e : entrySet) {
+                assertTrue(cache.containsKey(e.getKey()));
+                assertEquals(cache.get(e.getKey()), e.getValue());
+            }
+
+            Set<String> keySet = cache.keySet();
+            assertEquals(new HashSet<>(Arrays.asList("k1", "k2", "k3")), keySet);
+
+            Collection<Integer> values = cache.values();
+            assertEquals(3, values.size());
+            assertTrue(values.containsAll(Arrays.asList(10, 20, 30)));
+        }
+    }
+
+    @Test
+    public void testToStringAndHashCode() {
+        for (LRUCache<String, Integer> cache : caches()) {
+            cache.put("a", 1);
+            cache.put("b", 2);
+            String s = cache.toString();
+            assertNotNull(s);
+            assertTrue(s.contains("a"));
+            assertTrue(s.contains("b"));
+
+            int hash = cache.hashCode();
+            // Hash code must be consistent with the underlying map's hash code
+            Map<String, Integer> reference = new HashMap<>();
+            reference.putAll(cache);
+            assertEquals(reference.hashCode(), hash);
+        }
+    }
+
+    @Test
+    public void testEquals() {
+        // Equality with another Map having same entries
+        Map<String, Integer> map = new HashMap<>();
+        map.put("x", 1);
+        map.put("y", 2);
+
+        for (LRUCache<String, Integer> cache : caches()) {
+            cache.putAll(map);
+            assertTrue(cache.equals(map));
+            assertTrue(cache.equals(cache)); // reflexive
+            assertFalse(cache.equals(null));
+            assertFalse(cache.equals("some string"));
+        }
+
+        // Equality with different entries
+        LRUCache<String, Integer> other = new LRUCache<>(CAPACITY);
+        other.put("z", 99);
+        assertFalse(lockingCache.equals(other));
+    }
+
+    @Test
+    public void testNullKeyAndNullValue() {
+        for (LRUCache<String, Integer> cache : caches()) {
+            // null key
+            cache.put(null, 123);
+            assertTrue(cache.containsKey(null));
+            assertEquals(Integer.valueOf(123), cache.get(null));
+
+            // null value
+            cache.put("nullValue", null);
+            assertTrue(cache.containsKey("nullValue"));
+            assertTrue(cache.containsValue(null));
+            assertNull(cache.get("nullValue"));
+        }
+    }
+
+    /* -----------------------------------------------------------------------
+     *  Capacity enforcement (LRU eviction) – special handling for threaded cache.
+     * ----------------------------------------------------------------------- */
+
+    @Test
+    public void testLockingStrategyEvictsLeastRecentlyUsedImmediately() {
+        LRUCache<String, Integer> cache = new LRUCache<>(2); // locking by default
+        cache.put("first", 1);
+        cache.put("second", 2);
+        // Access "first" to make it most recently used
+        cache.get("first");
+        // Insert third entry – should evict "second"
+        cache.put("third", 3);
+        assertEquals(2, cache.size());
+        assertTrue(cache.containsKey("first"));
+        assertTrue(cache.containsKey("third"));
+        assertFalse(cache.containsKey("second"));
+    }
+
+    @Test
+    public void testThreadedStrategyEvictsAfterDelay() throws InterruptedException {
+        LRUCache<String, Integer> cache = new LRUCache<>(2, LRUCache.StrategyType.THREADED);
+        cache.put("a", 1);
+        cache.put("b", 2);
+        // Access "a" to make it MRU
+        cache.get("a");
+        // Insert third entry – size may temporarily be 3
+        cache.put("c", 3);
+        assertEquals(3, cache.size()); // before cleanup
+
+        // Wait longer than cleanup delay (default is 10 ms)
+        Thread.sleep(50);
+        // After cleanup the size must be back to capacity and LRU entry evicted
+        assertEquals(2, cache.size());
+        assertTrue(cache.containsKey("a"));
+        assertTrue(cache.containsKey("c"));
+        assertFalse(cache.containsKey("b"));
+    }
+
+    /* -----------------------------------------------------------------------
+     *  Shutdown behavior
+     * ----------------------------------------------------------------------- */
+
+    @Test
+    public void testShutdownOnLockingCacheDoesNotThrow() {
+        LRUCache<String, Integer> cache = new LRUCache<>(CAPACITY);
+        // No exception expected
+        cache.shutdown();
+    }
+
+    @Test
+    public void testShutdownOnThreadedCacheDoesNotThrow() {
+        LRUCache<String, Integer> cache = new LRUCache<>(CAPACITY, LRUCache.StrategyType.THREADED);
+        // No exception expected
+        cache.shutdown();
+    }
+
+    /* -----------------------------------------------------------------------
+     *  Helper utilities
+     * ----------------------------------------------------------------------- */
+
+    /** Returns an array containing all three caches created in @Before. */
+    private LRUCache<String, Integer>[] caches() {
+        @SuppressWarnings("unchecked")
+        LRUCache<String, Integer>[] arr = new LRUCache[]{lockingCache, threadedCache, threadedCacheWithCustomDelay};
+        return arr;
+    }
+
+    /**
+     * For threaded caches we may need to give the background cleanup thread a chance to run.
+     * This method sleeps only when the supplied cache is an instance of the threaded strategy.
+     */
+    private void waitForThreadedCleanupIfNeeded(LRUCache<String, Integer> cache) {
+        if (isThreaded(cache)) {
+            try {
+                Thread.sleep(CLEANUP_DELAY + 20); // a little extra margin
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+        }
+    }
+
+    /** Detects whether the underlying strategy is threaded by reflection on the private field. */
+    private boolean isThreaded(LRUCache<String, Integer> cache) {
+        try {
+            java.lang.reflect.Field f = LRUCache.class.getDeclaredField("strategy");
+            f.setAccessible(true);
+            Object strat = f.get(cache);
+            return strat instanceof ThreadedLRUCacheStrategy;
+        } catch (Exception e) {
+            // Should never happen – if it does, treat as not threaded.
+            return false;
+        }
+    }
+}

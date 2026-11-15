@@ -1,0 +1,143 @@
+package com.cedarsoftware.util.convert;
+import com.cedarsoftware.util.CompactLinkedMap;
+
+
+import org.junit.Test;
+import org.junit.Assert;
+
+import java.time.Year;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+import java.math.BigInteger;
+import java.math.BigDecimal;
+
+/**
+ * Unit tests for {@link YearConversions}. All conversion methods are exercised
+ * with a variety of {@link Year} values, including edge cases such as zero,
+ * negative years and values that overflow a {@code short}.
+ *
+ * The {@code Converter} argument is not used by the implementation, therefore
+ * {@code null} is passed safely.
+ */
+public class YearConversionsTest {
+
+    // Helper constant – the {@code YEAR} key used by {@code toMap}.
+    private static final Object YEAR_KEY = YEAR; // imported via static import in YearConversions
+
+    @Test
+    public void testToInt() {
+        Assert.assertEquals(2023, YearConversions.toInt(Year.of(2023), null));
+        Assert.assertEquals(0, YearConversions.toInt(Year.of(0), null));
+        Assert.assertEquals(-500, YearConversions.toInt(Year.of(-500), null));
+    }
+
+    @Test
+    public void testToLong() {
+        Assert.assertEquals(2023L, YearConversions.toLong(Year.of(2023), null));
+        Assert.assertEquals(0L, YearConversions.toLong(Year.of(0), null));
+        Assert.assertEquals(-500L, YearConversions.toLong(Year.of(-500), null));
+    }
+
+    @Test
+    public void testToShort() {
+        // Normal range
+        Assert.assertEquals((short) 2023, YearConversions.toShort(Year.of(2023), null));
+
+        // Overflow – short wraps around
+        short expected = (short) 40000; // 40000 - 65536 = -25536
+        Assert.assertEquals(expected, YearConversions.toShort(Year.of(40000), null));
+    }
+
+    @Test
+    public void testToAtomicInteger() {
+        AtomicInteger ai = YearConversions.toAtomicInteger(Year.of(2023), null);
+        Assert.assertEquals(2023, ai.get());
+
+        ai = YearConversions.toAtomicInteger(Year.of(-123), null);
+        Assert.assertEquals(-123, ai.get());
+    }
+
+    @Test
+    public void testToAtomicLong() {
+        AtomicLong al = YearConversions.toAtomicLong(Year.of(2023), null);
+        Assert.assertEquals(2023L, al.get());
+
+        al = YearConversions.toAtomicLong(Year.of(-999), null);
+        Assert.assertEquals(-999L, al.get());
+    }
+
+    @Test
+    public void testToDoubleAndFloat() {
+        double d = YearConversions.toDouble(Year.of(2023), null);
+        Assert.assertEquals(2023.0, d, 0.0);
+
+        float f = YearConversions.toFloat(Year.of(-321), null);
+        Assert.assertEquals(-321.0f, f, 0.0f);
+    }
+
+    @Test
+    public void testToAtomicBoolean() {
+        AtomicBoolean abTrue = YearConversions.toAtomicBoolean(Year.of(1), null);
+        Assert.assertTrue(abTrue.get());
+
+        AtomicBoolean abFalseZero = YearConversions.toAtomicBoolean(Year.of(0), null);
+        Assert.assertFalse(abFalseZero.get());
+
+        AtomicBoolean abFalseNeg = YearConversions.toAtomicBoolean(Year.of(-5), null);
+        Assert.assertTrue(abFalseNeg.get()); // any non‑zero value yields true
+    }
+
+    @Test
+    public void testToBigIntegerAndBigDecimal() {
+        BigInteger bi = YearConversions.toBigInteger(Year.of(2023), null);
+        Assert.assertEquals(BigInteger.valueOf(2023), bi);
+
+        BigDecimal bd = YearConversions.toBigDecimal(Year.of(-2023), null);
+        Assert.assertEquals(BigDecimal.valueOf(-2023), bd);
+    }
+
+    @Test
+    public void testToString() {
+        Assert.assertEquals("2023", YearConversions.toString(Year.of(2023), null));
+        Assert.assertEquals("-0456", YearConversions.toString(Year.of(-456), null));
+        // Year.toString pads negative years to 4 digits; zero is "0"
+        Assert.assertEquals("0", YearConversions.toString(Year.of(0), null));
+    }
+
+    @Test
+    public void testToMap() {
+        Year year = Year.of(2023);
+        Map<?, ?> map = YearConversions.toMap(year, null);
+
+        // The map must be a CompactLinkedMap (which extends Map)
+        Assert.assertTrue(map instanceof CompactLinkedMap);
+
+        // It must contain exactly one entry with the key YEAR and the correct value
+        Assert.assertEquals(1, map.size());
+        Assert.assertTrue(map.containsKey(YEAR_KEY));
+        Assert.assertEquals(Integer.valueOf(2023), map.get(YEAR_KEY));
+
+        // Verify that the value is an Integer, not Long, etc.
+        Object value = map.get(YEAR_KEY);
+        Assert.assertTrue(value instanceof Integer);
+    }
+
+    @Test
+    public void testAllConversionsConsistent() {
+        // Verify that every numeric conversion yields the same underlying int value.
+        Year sample = Year.of(1999);
+        int i = YearConversions.toInt(sample, null);
+        Assert.assertEquals(i, YearConversions.toLong(sample, null));
+        Assert.assertEquals((short) i, YearConversions.toShort(sample, null));
+        Assert.assertEquals(i, YearConversions.toAtomicInteger(sample, null).get());
+        Assert.assertEquals((long) i, YearConversions.toAtomicLong(sample, null).get());
+        Assert.assertEquals((double) i, YearConversions.toDouble(sample, null), 0.0);
+        Assert.assertEquals((float) i, YearConversions.toFloat(sample, null), 0.0f);
+        Assert.assertEquals(BigInteger.valueOf(i), YearConversions.toBigInteger(sample, null));
+        Assert.assertEquals(BigDecimal.valueOf(i), YearConversions.toBigDecimal(sample, null));
+        Assert.assertEquals(Year.of(i).toString(), YearConversions.toString(sample, null));
+        Assert.assertEquals(Boolean.valueOf(i != 0), YearConversions.toAtomicBoolean(sample, null).get());
+    }
+}

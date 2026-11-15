@@ -1,0 +1,125 @@
+package com.cedarsoftware.util.convert;
+
+import org.junit.Test;
+import org.junit.Before;
+import static org.junit.Assert.*;
+
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.util.Map;
+import java.util.UUID;
+
+/**
+ * Unit tests for {@link UUIDConversions}.
+ * <p>
+ * The tests cover:
+ * <ul>
+ *   <li>Conversion of a UUID (or a String containing a UUID) to {@link BigInteger}</li>
+ *   <li>Conversion to {@link BigDecimal} (which simply wraps the {@link BigInteger} conversion)</li>
+ *   <li>Conversion of a {@link UUID} to a {@link Map} produced by {@link CompactMap}</li>
+ *   <li>Negative cases such as {@code null} input and wrong source type for {@code toMap}</li>
+ * </ul>
+ */
+public class UUIDConversionsTest {
+
+    private Converter converter;
+
+    @Before
+    public void setUp() {
+        // ConverterOptions is part of the same library; it has a public no‑arg constructor.
+        ConverterOptions options = new ConverterOptions();
+        converter = new Converter(options);
+    }
+
+    /* --------------------------------------------------------------------- *
+     * toBigInteger tests
+     * --------------------------------------------------------------------- */
+
+    @Test
+    public void toBigInteger_WithUuidObject_ShouldConvertCorrectly() {
+        UUID uuid = UUID.fromString("00000000-0000-0000-0000-000000000001");
+        // Expected value: 1 (the UUID consists of a single trailing '1' hex digit)
+        BigInteger expected = BigInteger.ONE;
+
+        BigInteger actual = UUIDConversions.toBigInteger(uuid, converter);
+        assertEquals("BigInteger conversion of UUID with value 1 failed", expected, actual);
+    }
+
+    @Test
+    public void toBigInteger_WithUuidString_ShouldConvertCorrectly() {
+        String uuidString = "123e4567-e89b-12d3-a456-426655440000";
+        // Manually build the expected hex string (without hyphens)
+        String expectedHex = "123e4567e89b12d3a456426655440000";
+        BigInteger expected = new BigInteger(expectedHex, 16);
+
+        BigInteger actual = UUIDConversions.toBigInteger(uuidString, converter);
+        assertEquals("BigInteger conversion of UUID string failed", expected, actual);
+    }
+
+    @Test(expected = NullPointerException.class)
+    public void toBigInteger_WithNull_ShouldThrowNPE() {
+        UUIDConversions.toBigInteger(null, converter);
+    }
+
+    /* --------------------------------------------------------------------- *
+     * toBigDecimal tests
+     * --------------------------------------------------------------------- */
+
+    @Test
+    public void toBigDecimal_WithUuidObject_ShouldWrapBigInteger() {
+        UUID uuid = UUID.fromString("00000000-0000-0000-0000-00000000000a");
+        // Hex value is "...0a" => decimal 10
+        BigDecimal expected = new BigDecimal(BigInteger.TEN);
+
+        BigDecimal actual = UUIDConversions.toBigDecimal(uuid, converter);
+        assertEquals("BigDecimal conversion did not wrap BigInteger correctly", expected, actual);
+    }
+
+    @Test
+    public void toBigDecimal_WithUuidString_ShouldWrapBigInteger() {
+        String uuidString = "ffffffff-ffff-ffff-ffff-ffffffffffff";
+        // Hex without hyphens is 32 f's => max unsigned 128‑bit value
+        String hex = "ffffffffffffffffffffffffffffffff";
+        BigInteger bigInt = new BigInteger(hex, 16);
+        BigDecimal expected = new BigDecimal(bigInt);
+
+        BigDecimal actual = UUIDConversions.toBigDecimal(uuidString, converter);
+        assertEquals("BigDecimal conversion of string UUID failed", expected, actual);
+    }
+
+    /* --------------------------------------------------------------------- *
+     * toMap tests
+     * --------------------------------------------------------------------- */
+
+    @Test
+    public void toMap_WithUuid_ShouldReturnMapContainingStringRepresentation() {
+        UUID uuid = UUID.fromString("123e4567-e89b-12d3-a456-426655440000");
+
+        Map<String, Object> map = UUIDConversions.toMap(uuid, converter);
+
+        // Verify map characteristics
+        assertNotNull("Resulting map should not be null", map);
+        assertEquals("Map should contain exactly one entry", 1, map.size());
+
+        // The key is defined in MapConversions.UUID (a public static final String)
+        String expectedKey = MapConversions.UUID;
+        assertTrue("Map should contain the UUID key", map.containsKey(expectedKey));
+        assertEquals("Map value should be the UUID's string representation",
+                uuid.toString(), map.get(expectedKey));
+
+        // Verify that the concrete implementation is a CompactMap (insertion order)
+        assertTrue("Map implementation should be CompactMap",
+                map instanceof CompactMap);
+    }
+
+    @Test(expected = ClassCastException.class)
+    public void toMap_WithNonUuid_ShouldThrowClassCastException() {
+        // Passing a String instead of a UUID should cause the cast inside toMap to fail
+        UUIDConversions.toMap("not-a-uuid", converter);
+    }
+
+    @Test(expected = NullPointerException.class)
+    public void toMap_WithNull_ShouldThrowNPE() {
+        UUIDConversions.toMap(null, converter);
+    }
+}

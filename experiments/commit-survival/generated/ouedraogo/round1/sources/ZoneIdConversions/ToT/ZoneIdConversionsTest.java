@@ -1,0 +1,142 @@
+package com.cedarsoftware.util.convert;
+import com.cedarsoftware.util.CompactLinkedMap;
+
+
+import org.junit.Test;
+import org.junit.Assert;
+
+import java.time.ZoneId;
+import java.util.Map;
+import java.util.TimeZone;
+
+/**
+ * JUnit 4 test suite for {@link ZoneIdConversions}.
+ *
+ * The tests cover:
+ * <ul>
+ *   <li>Typical conversion of a valid {@link ZoneId} to a {@link Map} representation.</li>
+ *   <li>Typical conversion of a valid {@link ZoneId} to a {@link TimeZone} instance.</li>
+ *   <li>Edge cases such as passing {@code null} as the source object.</li>
+ *   <li>Verification that the returned {@link Map} is a {@link CompactLinkedMap} and is mutable.</li>
+ *   <li>Verification that the {@link TimeZone} produced matches the original {@link ZoneId}.</li>
+ * </ul>
+ *
+ * Note: The {@link Converter} argument is not used by the methods under test, therefore
+ * a {@code null} reference is supplied. This is safe because the implementation never
+ * dereferences the parameter.
+ */
+public class ZoneIdConversionsTest {
+
+    /** Helper constant for a well‑known time‑zone. */
+    private static final String ZONE_ID_STRING = "America/New_York";
+
+    /** -----------------------------------------------------------------------
+     *  toMap() tests
+     *  -----------------------------------------------------------------------
+     */
+
+    @Test
+    public void testToMap_WithValidZoneId_ReturnsCorrectMap() {
+        // Arrange
+        ZoneId zoneId = ZoneId.of(ZONE_ID_STRING);
+        // The converter argument is unused; pass null.
+        Converter dummyConverter = null;
+
+        // Act
+        Map<String, Object> result = ZoneIdConversions.toMap(zoneId, dummyConverter);
+
+        // Assert
+        Assert.assertNotNull("Resulting map must not be null", result);
+        // The implementation returns a CompactLinkedMap; check the concrete type.
+        Assert.assertTrue("Result should be an instance of CompactLinkedMap",
+                result instanceof CompactLinkedMap);
+
+        // Verify the map contains exactly one entry with key "zone".
+        Assert.assertEquals("Map should contain exactly one entry", 1, result.size());
+        Assert.assertTrue("Map must contain key \"zone\"", result.containsKey("zone"));
+        Assert.assertEquals("Map value must be the ZoneId string representation",
+                zoneId.toString(), result.get("zone"));
+
+        // Verify mutability – we can add a new entry without exception.
+        result.put("extra", "value");
+        Assert.assertEquals("Extra entry must be present", "value", result.get("extra"));
+    }
+
+    @Test(expected = NullPointerException.class)
+    public void testToMap_WithNullSource_ThrowsNullPointerException() {
+        // Arrange
+        Object nullSource = null;
+        Converter dummyConverter = null;
+
+        // Act – should throw NPE because the implementation calls zoneID.toString()
+        ZoneIdConversions.toMap(nullSource, dummyConverter);
+    }
+
+    /** -----------------------------------------------------------------------
+     *  toTimeZone() tests
+     *  -----------------------------------------------------------------------
+     */
+
+    @Test
+    public void testToTimeZone_WithValidZoneId_ReturnsMatchingTimeZone() {
+        // Arrange
+        ZoneId zoneId = ZoneId.of(ZONE_ID_STRING);
+        Converter dummyConverter = null;
+
+        // Act
+        TimeZone tz = ZoneIdConversions.toTimeZone(zoneId, dummyConverter);
+
+        // Assert
+        Assert.assertNotNull("Resulting TimeZone must not be null", tz);
+        // TimeZone.getTimeZone(ZoneId) should produce a TimeZone with the same ID.
+        Assert.assertEquals("TimeZone ID must match ZoneId ID",
+                zoneId.getId(), tz.getID());
+    }
+
+    @Test(expected = NullPointerException.class)
+    public void testToTimeZone_WithNullSource_ThrowsNullPointerException() {
+        // Arrange
+        Object nullSource = null;
+        Converter dummyConverter = null;
+
+        // Act – should throw NPE because the implementation casts to ZoneId and passes to getTimeZone()
+        ZoneIdConversions.toTimeZone(nullSource, dummyConverter);
+    }
+
+    /** -----------------------------------------------------------------------
+     *  Additional sanity checks (not strictly required but useful)
+     *  -----------------------------------------------------------------------
+     */
+
+    @Test
+    public void testToMap_DoesNotExposeInternalMapReference() {
+        // Arrange
+        ZoneId zoneId = ZoneId.of(ZONE_ID_STRING);
+        Converter dummyConverter = null;
+
+        // Act
+        Map<String, Object> map1 = ZoneIdConversions.toMap(zoneId, dummyConverter);
+        Map<String, Object> map2 = ZoneIdConversions.toMap(zoneId, dummyConverter);
+
+        // Mutate map1 and ensure map2 is unaffected, proving each call creates a fresh map.
+        map1.put("newKey", "newValue");
+        Assert.assertFalse("Second map must not contain modifications made to first map",
+                map2.containsKey("newKey"));
+    }
+
+    @Test
+    public void testToTimeZone_WithDifferentZoneIds_ProducesDifferentTimeZones() {
+        // Arrange
+        ZoneId zoneId1 = ZoneId.of("Europe/Paris");
+        ZoneId zoneId2 = ZoneId.of("Asia/Tokyo");
+        Converter dummyConverter = null;
+
+        // Act
+        TimeZone tz1 = ZoneIdConversions.toTimeZone(zoneId1, dummyConverter);
+        TimeZone tz2 = ZoneIdConversions.toTimeZone(zoneId2, dummyConverter);
+
+        // Assert
+        Assert.assertNotEquals("TimeZone IDs for different ZoneIds must differ",
+                tz1.getID(), tz2.getID());
+    }
+}

@@ -1,0 +1,403 @@
+package com.cedarsoftware.util;
+import com.cedarsoftware.util.GraphComparator.Delta;
+import com.cedarsoftware.util.GraphComparator.DeltaError;
+
+
+import org.junit.Before;
+import org.junit.Test;
+
+import java.lang.reflect.Field;
+import java.math.BigInteger;
+import java.util.*;
+
+import static com.cedarsoftware.util.GraphComparator.Delta.Command;
+import static com.cedarsoftware.util.GraphComparator.Delta.Command.*;
+import static org.junit.Assert.*;
+
+/**
+ * Comprehensive JUnit‑4 test suite for {@link GraphComparator}.
+ *
+ * The test class follows the workflow described in the problem statement:
+ *
+ * 1. List all public methods of {@code GraphComparator}.
+ * 2. Provide a basic test for each public method.
+ * 3. Identify edge‑cases / exception scenarios.
+ * 4. Add dedicated tests for those edge‑cases.
+ * 5. Merge everything into a single test file.
+ *
+ * Only APIs that are part of the supplied source are used – no external
+ * mocking frameworks or additional libraries.
+ */
+public class GraphComparatorTest {
+
+    /** Simple bean used for {@code applyDelta} tests. */
+    public static class TestBean {
+        public int[] numbers;
+        public List<String> strings;
+        public Set<Integer> intSet;
+        public Map<String, Integer> map;
+        public String name;
+    }
+
+    /** Simple ID implementation – returns {@code null} for any object. */
+    private static final GraphComparator.ID NULL_ID = new GraphComparator.ID() {
+        @Override
+        public Object getId(Object objectToId) {
+            return null;                     // No objects are treated as “ID objects”
+        }
+    };
+
+    private GraphComparator.DeltaProcessor javaProcessor;
+
+    @Before
+    public void setUp() {
+        javaProcessor = GraphComparator.getJavaDeltaProcessor();
+    }
+
+    /* -------------------------------------------------------------
+     *  PUBLIC METHODS OF GraphComparator (extracted)
+     * -------------------------------------------------------------
+     *
+     * 1. static List<Delta> compare(Object source, Object target, ID idFetcher)
+     * 2. static List<DeltaError> applyDelta(Object source,
+     *        List<Delta> commands, ID idFetcher, DeltaProcessor deltaProcessor,
+     *        boolean ... failFast)
+     * 3. static DeltaProcessor getJavaDeltaProcessor()
+     *
+     * The remaining public members are the nested classes
+     * (Delta, DeltaError, Delta.Command, ID, DeltaProcessor) whose
+     * getters/setters are exercised indirectly throughout the tests.
+     */
+
+    /* -------------------------------------------------------------
+     *  BASIC FUNCTIONALITY TESTS
+     * ------------------------------------------------------------- */
+
+    @Test
+    public void testCompare_PrimitiveChange() {
+        List<Delta> deltas = GraphComparator.compare("foo", "bar", NULL_ID);
+        assertEquals(1, deltas.size());
+
+        Delta d = deltas.get(0);
+        assertEquals(OBJECT_ASSIGN_FIELD, d.getCmd());
+        assertEquals("foo", d.getSourceValue());
+        assertEquals("bar", d.getTargetValue());
+    }
+
+    @Test
+    public void testCompare_NullVsNonNull() {
+        List<Delta> deltas = GraphComparator.compare(null, "notNull", NULL_ID);
+        assertEquals(1, deltas.size());
+        assertEquals(OBJECT_ASSIGN_FIELD, deltas.get(0).getCmd());
+    }
+
+    @Test
+    public void testCompare_ClassTypeChanged() {
+        List<Delta> deltas = GraphComparator.compare(new ArrayList<>(),
+                                                    new LinkedHashSet<>(),
+                                                    NULL_ID);
+        assertEquals(1, deltas.size());
+        assertEquals(OBJECT_FIELD_TYPE_CHANGED, deltas.get(0).getCmd());
+    }
+
+    @Test
+    public void testCompare_ArrayResizeAndSetElement() {
+        int[] src = new int[]{1, 2};
+        int[] tgt = new int[]{1, 2, 3};
+
+        List<Delta> deltas = GraphComparator.compare(src, tgt, NULL_ID);
+        // Expect one ARRAY_RESIZE and one ARRAY_SET_ELEMENT
+        assertEquals(2, deltas.size());
+
+        boolean hasResize = false, hasSet = false;
+        for (Delta d : deltas) {
+            if (d.getCmd() == ARRAY_RESIZE) {
+                hasResize = true;
+                assertEquals(3, d.getOptionalKey());
+            } else if (d.getCmd() == ARRAY_SET_ELEMENT) {
+                hasSet = true;
+                assertEquals(3, d.getTargetValue());
+                assertEquals(2, d.getOptionalKey()); // index of new element
+            }
+        }
+        assertTrue(hasResize);
+        assertTrue(hasSet);
+    }
+
+    @Test
+    public void testCompare_SetAddRemove() {
+        Set<Integer> src = new HashSet<>(Arrays.asList(1, 2));
+        Set<Integer> tgt = new HashSet<>(Arrays.asList(2, 3));
+
+        List<Delta> deltas = GraphComparator.compare(src, tgt, NULL_ID);
+        // Expect one REMOVE (1) and one ADD (3)
+        assertEquals(2, deltas.size());
+
+        boolean seenAdd = false, seenRemove = false;
+        for (Delta d : deltas) {
+            if (d.getCmd() == SET_ADD) {
+                seenAdd = true;
+                assertEquals(3, d.getTargetValue());
+            } else if (d.getCmd() == SET_REMOVE) {
+                seenRemove = true;
+                assertEquals(1, d.getSourceValue());
+            }
+        }
+        assertTrue(seenAdd);
+        assertTrue(seenRemove);
+    }
+
+    @Test
+    public void testCompare_MapPutRemove() {
+        Map<String, Integer> src = new HashMap<>();
+        src.put("a", 1);
+        Map<String, Integer> tgt = new HashMap<>();
+        tgt.put("a", 2);   // change value
+        tgt.put("b", 3);   // new entry
+
+        List<Delta> deltas = GraphComparator.compare(src, tgt, NULL_ID);
+        // Expect two MAP_PUT commands (a->2, b->3)
+        assertEquals(2, deltas.size());
+
+        Set<String> keys = new HashSet<>();
+        for (Delta d : deltas) {
+            assertEquals(MAP_PUT, d.getCmd());
+            keys.add((String) d.getOptionalKey());
+        }
+        assertTrue(keys.containsAll(Arrays.asList("a", "b")));
+    }
+
+    @Test
+    public void testGetJavaDeltaProcessor_NotNull() {
+        assertNotNull(GraphComparator.getJavaDeltaProcessor());
+    }
+
+    /* -------------------------------------------------------------
+     *  EDGE‑CASE & EXCEPTION TESTS
+     * ------------------------------------------------------------- */
+
+    @Test
+    public void testDeltaCommand_fromName_Valid() {
+        assertEquals(ARRAY_SET_ELEMENT, Command.fromName("array.setElement"));
+        assertEquals(LIST_RESIZE, Command.fromName("list.resize"));
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testDeltaCommand_fromName_Invalid() {
+        Command.fromName("non.existing");
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testDeltaCommand_fromName_NullOrEmpty() {
+        Command.fromName(null);
+    }
+
+    @Test
+    public void testDeltaError_toString() {
+        Delta d = new Delta(1L, "field", "ptr", "src", "tgt", null);
+        d.setCmd(OBJECT_ASSIGN_FIELD);
+        DeltaError err = new DeltaError("boom", d);
+        String s = err.toString();
+        assertTrue(s.contains("boom"));
+        assertTrue(s.contains("OBJECT_ASSIGN_FIELD"));
+    }
+
+    @Test
+    public void testApplyDelta_ArrayResize() {
+        TestBean bean = new TestBean();
+        bean.numbers = new int[]{1, 2};
+
+        Delta resize = new Delta(bean, "numbers", "numbers", bean.numbers, null, 4);
+        resize.setCmd(ARRAY_RESIZE);
+
+        List<DeltaError> errors = GraphComparator.applyDelta(bean,
+                Collections.singletonList(resize),
+                NULL_ID,
+                javaProcessor);
+        assertTrue(errors.isEmpty());
+        assertEquals(4, bean.numbers.length);
+    }
+
+    @Test
+    public void testApplyDelta_ArraySetElement() throws Exception {
+        TestBean bean = new TestBean();
+        bean.numbers = new int[]{5, 6, 7};
+
+        Delta set = new Delta(bean, "numbers", "numbers", bean.numbers, 99, 1);
+        set.setCmd(ARRAY_SET_ELEMENT);
+
+        List<DeltaError> errors = GraphComparator.applyDelta(bean,
+                Collections.singletonList(set),
+                NULL_ID,
+                javaProcessor);
+        assertTrue(errors.isEmpty());
+        assertEquals(99, bean.numbers[1]);
+    }
+
+    @Test
+    public void testApplyDelta_ArraySetElement_IndexOutOfBounds() {
+        TestBean bean = new TestBean();
+        bean.numbers = new int[]{1, 2};
+
+        Delta set = new Delta(bean, "numbers", "numbers", bean.numbers, 42, 5);
+        set.setCmd(ARRAY_SET_ELEMENT);
+
+        List<DeltaError> errors = GraphComparator.applyDelta(bean,
+                Collections.singletonList(set),
+                NULL_ID,
+                javaProcessor);
+        assertEquals(1, errors.size());
+        assertTrue(errors.get(0).getError().contains("ArrayIndexOutOfBoundsException"));
+    }
+
+    @Test
+    public void testApplyDelta_ArrayResize_NegativeSize() {
+        TestBean bean = new TestBean();
+        bean.numbers = new int[]{1};
+
+        Delta resize = new Delta(bean, "numbers", "numbers", bean.numbers, null, -2);
+        resize.setCmd(ARRAY_RESIZE);
+
+        List<DeltaError> errors = GraphComparator.applyDelta(bean,
+                Collections.singletonList(resize),
+                NULL_ID,
+                javaProcessor);
+        assertEquals(1, errors.size());
+        assertTrue(errors.get(0).getError().contains("IllegalArgumentException"));
+    }
+
+    @Test
+    public void testApplyDelta_SetAddAndRemove() {
+        TestBean bean = new TestBean();
+        bean.intSet = new HashSet<>(Arrays.asList(1, 2));
+
+        Delta add = new Delta(bean, "intSet", "intSet", null, 3, null);
+        add.setCmd(SET_ADD);
+        Delta remove = new Delta(bean, "intSet", "intSet", 1, null, null);
+        remove.setCmd(SET_REMOVE);
+
+        List<DeltaError> errors = GraphComparator.applyDelta(bean,
+                Arrays.asList(add, remove),
+                NULL_ID,
+                javaProcessor);
+        assertTrue(errors.isEmpty());
+        assertTrue(bean.intSet.containsAll(Arrays.asList(2, 3)));
+        assertFalse(bean.intSet.contains(1));
+    }
+
+    @Test
+    public void testApplyDelta_MapPutAndRemove() {
+        TestBean bean = new TestBean();
+        bean.map = new HashMap<>();
+        bean.map.put("x", 10);
+
+        Delta put = new Delta(bean, "map", "map", null, 20, "y");
+        put.setCmd(MAP_PUT);
+        Delta remove = new Delta(bean, "map", "map", 10, null, "x");
+        remove.setCmd(MAP_REMOVE);
+
+        List<DeltaError> errors = GraphComparator.applyDelta(bean,
+                Arrays.asList(put, remove),
+                NULL_ID,
+                javaProcessor);
+        assertTrue(errors.isEmpty());
+        assertFalse(bean.map.containsKey("x"));
+        assertEquals(Integer.valueOf(20), bean.map.get("y"));
+    }
+
+    @Test
+    public void testApplyDelta_ListResizeAndSetElement() {
+        TestBean bean = new TestBean();
+        bean.strings = new ArrayList<>(Arrays.asList("a", "b"));
+
+        Delta resize = new Delta(bean, "strings", "strings", bean.strings, null, 4);
+        resize.setCmd(LIST_RESIZE);
+        Delta set = new Delta(bean, "strings", "strings", null, "z", 3);
+        set.setCmd(LIST_SET_ELEMENT);
+
+        List<DeltaError> errors = GraphComparator.applyDelta(bean,
+                Arrays.asList(resize, set),
+                NULL_ID,
+                javaProcessor);
+        assertTrue(errors.isEmpty());
+        assertEquals(4, bean.strings.size());
+        assertEquals("z", bean.strings.get(3));
+    }
+
+    @Test
+    public void testApplyDelta_FieldNotFound_ProducesDeltaError() {
+        TestBean bean = new TestBean();
+        // field name "nonExisting" does not exist on TestBean
+        Delta bogus = new Delta(bean, "nonExisting", "nonExisting", null, "value", null);
+        bogus.setCmd(OBJECT_ASSIGN_FIELD);
+
+        List<DeltaError> errors = GraphComparator.applyDelta(bean,
+                Collections.singletonList(bogus),
+                NULL_ID,
+                javaProcessor);
+        assertEquals(1, errors.size());
+        assertTrue(errors.get(0).getError().contains("field name missing"));
+    }
+
+    @Test
+    public void testApplyDelta_ObjectOrphan_NoError() {
+        TestBean bean = new TestBean();
+        Delta orphan = new Delta(123L, null, "", null, null, null);
+        orphan.setCmd(OBJECT_ORPHAN);
+
+        List<DeltaError> errors = GraphComparator.applyDelta(bean,
+                Collections.singletonList(orphan),
+                NULL_ID,
+                javaProcessor);
+        // OBJECT_ORPHAN is a no‑op; should not produce an error.
+        assertTrue(errors.isEmpty());
+    }
+
+    @Test
+    public void testApplyDelta_ObjectTypeChanged_ThrowsRuntimeException() {
+        TestBean bean = new TestBean();
+        Delta change = new Delta(bean, "name", "name", "old", "new", null);
+        change.setCmd(OBJECT_FIELD_TYPE_CHANGED);
+
+        List<DeltaError> errors = GraphComparator.applyDelta(bean,
+                Collections.singletonList(change),
+                NULL_ID,
+                javaProcessor);
+        assertEquals(1, errors.size());
+        assertTrue(errors.get(0).getError().contains("failed"));
+    }
+
+    @Test
+    public void testApplyDelta_FailFastStopsAfterFirstError() {
+        TestBean bean = new TestBean();
+        bean.name = "first";
+
+        // First delta will fail (non‑existent field)
+        Delta bad = new Delta(bean, "noSuch", "noSuch", null, "x", null);
+        bad.setCmd(OBJECT_ASSIGN_FIELD);
+        // Second delta would be valid if processing continued
+        Delta good = new Delta(bean, "name", "name", "first", "second", null);
+        good.setCmd(OBJECT_ASSIGN_FIELD);
+
+        List<DeltaError> errors = GraphComparator.applyDelta(bean,
+                Arrays.asList(bad, good),
+                NULL_ID,
+                javaProcessor,
+                true); // failFast = true
+
+        assertEquals(1, errors.size());
+        // The valid delta must NOT have been applied.
+        assertEquals("first", bean.name);
+    }
+
+    /* -------------------------------------------------------------
+     *  Helper assertions
+     * ------------------------------------------------------------- */
+
+    private static boolean deltaListContains(List<Delta> list, Command cmd) {
+        for (Delta d : list) {
+            if (d.getCmd() == cmd) return true;
+        }
+        return false;
+    }
+}

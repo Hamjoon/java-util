@@ -1,0 +1,103 @@
+package com.cedarsoftware.util.convert;
+
+import org.junit.Test;
+import org.junit.Before;
+
+import java.net.URL;
+import java.net.URI;
+import java.util.Map;
+
+import static org.junit.Assert.*;
+import static com.cedarsoftware.util.convert.MapConversions.URL_KEY;
+
+/**
+ * Comprehensive JUnit‑4 test suite for {@link UrlConversions}.
+ *
+ * The tests cover:
+ * <ul>
+ *   <li>Typical successful conversions for {@code toMap} and {@code toURI}.</li>
+ *   <li>Edge cases such as {@code null} inputs.</li>
+ *   <li>Error handling – ensuring that malformed URLs cause the expected {@code IllegalArgumentException}.</li>
+ *   <li>Verification that the supplied {@code Converter} argument is ignored (as per current implementation).</li>
+ * </ul>
+ *
+ * The test class resides in the same package as {@code UrlConversions} so that it can
+ * access the package‑private static methods.
+ */
+public class UrlConversionsTest {
+
+    private Converter dummyConverter; // not used by the current implementation
+
+    @Before
+    public void setUp() {
+        // The Converter constructor requires a ConverterOptions instance, but the class under test never uses the converter.
+        // To avoid pulling in additional classes we simply pass {@code null}. This is safe because the methods do not dereference it.
+        dummyConverter = null;
+    }
+
+    /*** ---------- toMap() tests ---------- ***/
+
+    @Test
+    public void testToMapReturnsMapContainingUrlString() throws Exception {
+        URL url = new URL("http://example.com/path?query=123");
+        Map<String, Object> result = UrlConversions.toMap(url, dummyConverter);
+
+        assertNotNull("Result map must not be null", result);
+        assertTrue("Result map must be an instance of CompactLinkedMap",
+                result instanceof CompactLinkedMap);
+        assertEquals("Map should contain exactly one entry", 1, result.size());
+        assertTrue("Map must contain the URL_KEY", result.containsKey(URL_KEY));
+        assertEquals("Stored value must be the URL's string representation",
+                url.toString(), result.get(URL_KEY));
+    }
+
+    @Test(expected = NullPointerException.class)
+    public void testToMapWithNullInputThrowsNPE() {
+        // The method casts the input to URL without a null‑check, so a NPE is expected.
+        UrlConversions.toMap(null, dummyConverter);
+    }
+
+    /*** ---------- toURI() tests ---------- ***/
+
+    @Test
+    public void testToURIConvertsUrlToUriSuccessfully() throws Exception {
+        URL url = new URL("https://www.example.org/resource?id=42");
+        URI uri = UrlConversions.toURI(url, dummyConverter);
+
+        assertNotNull("Returned URI must not be null", uri);
+        assertEquals("URI string must match the original URL string", url.toString(), uri.toString());
+    }
+
+    @Test
+    public void testToURIIgnoresProvidedConverter() throws Exception {
+        URL url = new URL("http://localhost/");
+        // Pass a non‑null dummy converter (the method does not use it)
+        Converter converter = new Converter(null);
+        URI uri = UrlConversions.toURI(url, converter);
+        assertEquals(url.toURI(), uri);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testToURIWhenUrlToURIFailsThrowsIllegalArgumentException() throws Exception {
+        // Construct a URL that is syntactically accepted but contains characters illegal in a URI.
+        // The '^' character is not permitted in the path component of a URI.
+        URL malformedUrl = new URL("http", "example.com", "/bad^path");
+        try {
+            UrlConversions.toURI(malformedUrl, dummyConverter);
+        } catch (IllegalArgumentException e) {
+            // Verify that the cause is a URISyntaxException and that the message contains the original URL.
+            assertNotNull("Cause should be present", e.getCause());
+            assertTrue("Cause should be a URISyntaxException",
+                    e.getCause() instanceof java.net.URISyntaxException);
+            assertTrue("Exception message should contain the original URL",
+                    e.getMessage().contains(malformedUrl.toString()));
+            throw e; // re‑throw to satisfy the expected exception rule
+        }
+    }
+
+    @Test(expected = NullPointerException.class)
+    public void testToURIWithNullInputThrowsNPE() {
+        // The method attempts to cast the argument to URL before the try/catch block.
+        UrlConversions.toURI(null, dummyConverter);
+    }
+}

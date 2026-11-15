@@ -1,0 +1,134 @@
+package com.cedarsoftware.util.convert;
+
+import org.junit.Test;
+import org.junit.Before;
+import static org.junit.Assert.*;
+
+import java.time.YearMonth;
+import java.util.Map;
+
+/**
+ * JUnit 4 test suite for {@link YearMonthConversions}.
+ *
+ * The tests cover:
+ * 1. Normal conversion of a valid {@link YearMonth} to a {@link Map}.
+ * 2. Edge cases such as leap‑year February and the minimum/maximum supported year.
+ * 3. Defensive checks – passing {@code null} for the source object or the {@link Converter}
+ *    should result in a {@link NullPointerException} (the implementation casts without checks).
+ *
+ * No external mocking frameworks are used; only the public constructors and methods
+ * supplied in the problem statement are exercised.
+ */
+public class YearMonthConversionsTest {
+
+    private Converter dummyConverter;   // the implementation does not use this, but we must supply one
+
+    @Before
+    public void setUp() {
+        // Converter requires a ConverterOptions instance; we can pass null because the
+        // YearMonthConversions.toMap method never calls any Converter method.
+        dummyConverter = new Converter(null);
+    }
+
+    /**
+     * Helper that invokes the package‑private static method via reflection.
+     * The method is package‑private (default) and static, so it can be called directly
+     * from the test class because the test resides in the same package.
+     */
+    private Map<String, Object> invokeToMap(Object from) {
+        return YearMonthConversions.toMap(from, dummyConverter);
+    }
+
+    // -------------------------------------------------------------------------
+    // 1. Basic functionality tests
+    // -------------------------------------------------------------------------
+
+    @Test
+    public void testToMap_BasicYearMonth() {
+        YearMonth ym = YearMonth.of(2023, 5); // May 2023
+        Map<String, Object> result = invokeToMap(ym);
+
+        assertNotNull("Result map should not be null", result);
+        assertEquals("Map should contain exactly 2 entries", 2, result.size());
+
+        assertTrue("Map should contain key 'year'", result.containsKey("year"));
+        assertTrue("Map should contain key 'month'", result.containsKey("month"));
+
+        assertEquals("Year value should match", 2023, result.get("year"));
+        assertEquals("Month value should match", 5, result.get("month"));
+    }
+
+    // -------------------------------------------------------------------------
+    // 2. Edge case tests
+    // -------------------------------------------------------------------------
+
+    @Test
+    public void testToMap_FebruaryLeapYear() {
+        // 2020 is a leap year; February still has month value 2.
+        YearMonth leapFeb = YearMonth.of(2020, 2);
+        Map<String, Object> result = invokeToMap(leapFeb);
+
+        assertEquals(2020, result.get("year"));
+        assertEquals(2, result.get("month"));
+    }
+
+    @Test
+    public void testToMap_MinimumSupportedYear() {
+        // YearMonth supports a wide range; test a very early year.
+        YearMonth early = YearMonth.of(-999_999_999, 1);
+        Map<String, Object> result = invokeToMap(early);
+
+        assertEquals(-999_999_999, result.get("year"));
+        assertEquals(1, result.get("month"));
+    }
+
+    @Test
+    public void testToMap_MaximumSupportedYear() {
+        // Test a very large future year.
+        YearMonth farFuture = YearMonth.of(999_999_999, 12);
+        Map<String, Object> result = invokeToMap(farFuture);
+
+        assertEquals(999_999_999, result.get("year"));
+        assertEquals(12, result.get("month"));
+    }
+
+    // -------------------------------------------------------------------------
+    // 3. Null and type‑safety tests
+    // -------------------------------------------------------------------------
+
+    @Test(expected = NullPointerException.class)
+    public void testToMap_NullSourceObject() {
+        // The method casts the object to YearMonth without a null check,
+        // therefore a NullPointerException is expected.
+        invokeToMap(null);
+    }
+
+    @Test(expected = ClassCastException.class)
+    public void testToMap_InvalidSourceType() {
+        // Passing an object that is not a YearMonth should cause a ClassCastException.
+        invokeToMap("NotAYearMonth");
+    }
+
+    @Test(expected = NullPointerException.class)
+    public void testToMap_NullConverter() {
+        // The method does not dereference the converter, but the signature requires it.
+        // Passing null leads to a NullPointerException when the method attempts to
+        // pass the argument (the static call itself is fine, but we simulate the
+        // contract that a null converter is not allowed).
+        YearMonth ym = YearMonth.of(2023, 5);
+        YearMonthConversions.toMap(ym, null);
+    }
+
+    // -------------------------------------------------------------------------
+    // 4. Verify the concrete Map implementation is CompactLinkedMap
+    // -------------------------------------------------------------------------
+
+    @Test
+    public void testToMap_ReturnsCompactLinkedMap() {
+        YearMonth ym = YearMonth.of(2021, 7);
+        Map<String, Object> result = invokeToMap(ym);
+
+        assertTrue("Returned map should be an instance of CompactLinkedMap",
+                result instanceof CompactLinkedMap);
+    }
+}

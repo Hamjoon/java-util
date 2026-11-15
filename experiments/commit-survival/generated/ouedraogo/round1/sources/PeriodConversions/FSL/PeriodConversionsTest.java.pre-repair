@@ -1,0 +1,102 @@
+package com.cedarsoftware.util.convert;
+
+import static org.junit.Assert.*;
+
+import java.time.Period;
+import java.util.Map;
+
+import org.junit.Test;
+
+/**
+ * Unit tests for {@link PeriodConversions}.
+ *
+ * These tests cover:
+ * <ul>
+ *   <li>Conversion of a regular {@link Period} (positive, negative and zero values) to a map.</li>
+ *   <li>Verification that the map contains the expected keys (MapConversions.YEARS, .MONTHS, .DAYS) and values.</li>
+ *   <li>Behaviour when the source object is not a {@link Period} (expects {@link ClassCastException}).</li>
+ *   <li>Behaviour when the source object is {@code null} (expects {@link NullPointerException}).</li>
+ * </ul>
+ *
+ * The {@link Converter} class does not participate in the conversion logic of {@code PeriodConversions},
+ * therefore a minimal instance is created using a {@code null} {@code ConverterOptions} (the constructor
+ * accepts {@code null} in the library implementation). No conversion functions are required for these tests.
+ */
+public class PeriodConversionsTest {
+
+    /** Helper to create a minimal {@link Converter} instance. */
+    private static Converter createConverter() {
+        // The library permits a null options argument; this is sufficient for the tests.
+        return new Converter(null);
+    }
+
+    @Test
+    public void testToMapWithPositivePeriod() {
+        Period period = Period.of(5, 3, 12); // 5 years, 3 months, 12 days
+        Map<String, Object> map = PeriodConversions.toMap(period, createConverter());
+
+        assertNotNull("Resulting map must not be null", map);
+        assertEquals("Map should contain exactly three entries", 3, map.size());
+
+        assertEquals("Years entry is incorrect", 5, map.get(MapConversions.YEARS));
+        assertEquals("Months entry is incorrect", 3, map.get(MapConversions.MONTHS));
+        assertEquals("Days entry is incorrect", 12, map.get(MapConversions.DAYS));
+    }
+
+    @Test
+    public void testToMapWithNegativePeriod() {
+        Period period = Period.of(-2, -4, -10); // -2 years, -4 months, -10 days
+        Map<String, Object> map = PeriodConversions.toMap(period, createConverter());
+
+        assertNotNull(map);
+        assertEquals(-2, map.get(MapConversions.YEARS));
+        assertEquals(-4, map.get(MapConversions.MONTHS));
+        assertEquals(-10, map.get(MapConversions.DAYS));
+    }
+
+    @Test
+    public void testToMapWithZeroPeriod() {
+        Period period = Period.of(0, 0, 0);
+        Map<String, Object> map = PeriodConversions.toMap(period, createConverter());
+
+        assertNotNull(map);
+        assertEquals(0, map.get(MapConversions.YEARS));
+        assertEquals(0, map.get(MapConversions.MONTHS));
+        assertEquals(0, map.get(MapConversions.DAYS));
+    }
+
+    @Test
+    public void testToMapDoesNotModifyOriginalPeriod() {
+        Period original = Period.of(1, 2, 3);
+        Period copy = Period.of(original.getYears(), original.getMonths(), original.getDays());
+
+        PeriodConversions.toMap(original, createConverter());
+
+        // Ensure the original Period instance still has the same values after conversion.
+        assertEquals(copy.getYears(), original.getYears());
+        assertEquals(copy.getMonths(), original.getMonths());
+        assertEquals(copy.getDays(), original.getDays());
+    }
+
+    @Test(expected = ClassCastException.class)
+    public void testToMapWithInvalidSourceObject() {
+        // Passing a String instead of a Period should trigger a ClassCastException.
+        PeriodConversions.toMap("not-a-period", createConverter());
+    }
+
+    @Test(expected = NullPointerException.class)
+    public void testToMapWithNullSource() {
+        // Passing null leads to a NullPointerException when the method tries to call period.getYears().
+        PeriodConversions.toMap(null, createConverter());
+    }
+
+    @Test
+    public void testReturnedMapIsCompactLinkedMap() {
+        Period period = Period.of(1, 1, 1);
+        Map<String, Object> map = PeriodConversions.toMap(period, createConverter());
+
+        // The concrete type should be CompactLinkedMap (or a subclass thereof).
+        assertTrue("Returned map should be an instance of CompactLinkedMap",
+                map instanceof CompactLinkedMap);
+    }
+}

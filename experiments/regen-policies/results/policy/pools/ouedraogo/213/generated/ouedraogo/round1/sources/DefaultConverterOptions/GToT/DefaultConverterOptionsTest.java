@@ -1,0 +1,182 @@
+package com.cedarsoftware.util.convert;
+import com.cedarsoftware.util.convert.Converter.ConversionPair;
+
+
+import org.junit.Before;
+import org.junit.Test;
+
+import java.lang.reflect.Field;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
+import static org.junit.Assert.*;
+
+/**
+ * Comprehensive JUnit‑4 test suite for {@link DefaultConverterOptions}.
+ *
+ * The tests cover:
+ * 1. Normal usage of the public API.
+ * 2. Edge‑case behaviour (null keys, missing entries, type‑mismatch).
+ * 3. Validation that the internal mutable maps are exposed as live references.
+ *
+ * No external mocking frameworks are used – only reflection to reach the
+ * private fields that are required to set up the test state, as the class
+ * itself does not provide mutators.
+ */
+public class DefaultConverterOptionsTest {
+
+    private DefaultConverterOptions options;
+
+    /** Reflection handles for the two private fields. */
+    private Field customOptionsField;
+    private Field converterOverridesField;
+
+    @Before
+    public void setUp() throws Exception {
+        options = new DefaultConverterOptions();
+
+        // Obtain private fields once; make them accessible for the whole test class.
+        customOptionsField = DefaultConverterOptions.class.getDeclaredField("customOptions");
+        customOptionsField.setAccessible(true);
+
+        converterOverridesField = DefaultConverterOptions.class.getDeclaredField("converterOverrides");
+        converterOverridesField.setAccessible(true);
+    }
+
+    /**
+     * Helper that injects a key/value pair directly into the {@code customOptions}
+     * map using reflection.
+     */
+    @SuppressWarnings("unchecked")
+    private void putCustomOption(String name, Object value) throws Exception {
+        Map<String, Object> map = (Map<String, Object>) customOptionsField.get(options);
+        map.put(name, value);
+    }
+
+    /**
+     * Helper that returns the internal {@code converterOverrides} map via reflection.
+     */
+    @SuppressWarnings("unchecked")
+    private Map<ConversionPair, Convert<?>> getInternalOverridesMap() throws Exception {
+        return (Map<ConversionPair, Convert<?>>) converterOverridesField.get(options);
+    }
+
+    /* -------------------------------------------------------------
+     *  Tests for getCustomOption(String)
+     * ------------------------------------------------------------- */
+
+    @Test
+    public void getCustomOption_ReturnsStoredValue() throws Exception {
+        String key = "greeting";
+        String expected = "hello world";
+        putCustomOption(key, expected);
+
+        String actual = options.getCustomOption(key);
+        assertEquals("The value retrieved must match the one stored via reflection.", expected, actual);
+    }
+
+    @Test
+    public void getCustomOption_ReturnsNullWhenKeyMissing() {
+        // No entry is added for this key.
+        Object result = options.getCustomOption("non‑existent");
+        assertNull("Missing key should yield null.", result);
+    }
+
+    @Test
+    public void getCustomOption_ReturnsNullWhenKeyIsNull() throws Exception {
+        // Explicitly store a null key/value pair via reflection – ConcurrentHashMap
+        // rejects null keys, so we store a non‑null key with a null value instead.
+        String key = "nullValue";
+        putCustomOption(key, null);
+
+        // Query with a null name – map.get(null) returns null.
+        Object result = options.getCustomOption(null);
+        assertNull("Calling with null name must return null (no entry for null key).", result);
+    }
+
+    @Test(expected = ClassCastException.class)
+    public void getCustomOption_ThrowsClassCastExceptionOnWrongGenericType() throws Exception {
+        // Store an Integer but request it as a String – the unchecked cast inside the
+        // method will cause a ClassCastException at the call site.
+        putCustomOption("number", Integer.valueOf(123));
+
+        // The following line is expected to fail.
+        options.getCustomOption("number"); // generic type inferred as String by the test compiler
+    }
+
+    /* -------------------------------------------------------------
+     *  Tests for getConverterOverrides()
+     * ------------------------------------------------------------- */
+
+    @Test
+    public void getConverterOverrides_ReturnsNonNullMap() {
+        Map<ConversionPair, Convert<?>> map = options.getConverterOverrides();
+        assertNotNull("The converterOverrides map must never be null.", map);
+    }
+
+    @Test
+    public void getConverterOverrides_InitiallyEmpty() {
+        Map<ConversionPair, Convert<?>> map = options.getConverterOverrides();
+        assertTrue("The map should be empty right after construction.", map.isEmpty());
+    }
+
+    @Test
+    public void getConverterOverrides_ReturnsLiveReference() throws Exception {
+        // Obtain the map via the public API.
+        Map<ConversionPair, Convert<?>> publicMap = options.getConverterOverrides();
+
+        // Obtain the same map via reflection and verify identity.
+        Map<ConversionPair, Convert<?>> internalMap = getInternalOverridesMap();
+
+        assertSame("The map returned by getConverterOverrides() must be the exact internal map.", internalMap, publicMap);
+
+        // Because we cannot instantiate a real ConversionPair (its constructors are not part of the public API),
+        // we simply test that any mutation on the returned map is reflected internally.
+        // Use a dummy key/value that are allowed by ConcurrentHashMap (no nulls).
+        // We create a synthetic ConversionPair via reflection using the default constructor,
+        // which exists even though it is not documented.
+
+        // --- create a dummy ConversionPair instance via reflection ---
+        ConversionPair dummyPair = createDummyConversionPair();
+
+        // Dummy Convert implementation – returns the input unchanged.
+        Convert<Object> dummyConvert = new Convert<Object>() {
+            @Override
+            public Object convert(Object from, Converter converter) {
+                return from;
+            }
+        };
+
+        // Mutate via the public reference.
+        publicMap.put(dummyPair, dummyConvert);
+
+        // Verify the internal map sees the same entry.
+        assertTrue("Modification through the public map must affect the internal map.", internalMap.containsKey(dummyPair));
+        assertEquals("The stored Convert instance must be identical.", dummyConvert, internalMap.get(dummyPair));
+    }
+
+    /**
+     * Creates a minimal {@link ConversionPair} instance using reflection.
+     * The class is a static final class inside {@link Converter}; its
+     * constructors are not part of the public API, but reflection can still
+     * access a no‑arg constructor (or the first available one) for testing
+     * purposes.
+     */
+    private ConversionPair createDummyConversionPair() throws Exception {
+        // Locate any declared constructor (there is at least one).
+        java.lang.reflect.Constructor<?>[] ctors = ConversionPair.class.getDeclaredConstructors();
+        assertTrue("ConversionPair must have at least one constructor for reflection usage.", ctors.length > 0);
+        java.lang.reflect.Constructor<?> ctor = ctors[0];
+        ctor.setAccessible(true);
+
+        // Most implementations have a (Class<?>, Class<?>) constructor; if the first
+        // constructor requires arguments we supply Object.class for both.
+        Class<?>[] paramTypes = ctor.getParameterTypes();
+        Object[] args = new Object[paramTypes.length];
+        for (int i = 0; i < paramTypes.length; i++) {
+            args[i] = Object.class; // a safe placeholder for any Class<?> parameter
+        }
+
+        return (ConversionPair) ctor.newInstance(args);
+    }
+}

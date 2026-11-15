@@ -1,0 +1,276 @@
+package com.cedarsoftware.util;
+
+import org.junit.Before;
+import org.junit.Test;
+
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.sql.Timestamp;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZonedDateTime;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+
+import static org.junit.Assert.*;
+
+public class ConverterTest {
+
+    /* --------------------------------------------------------------------- *
+     *  Helper data used by several tests
+     * --------------------------------------------------------------------- */
+    private static final String NUMBER_STRING = "12345";
+    private static final String BOOLEAN_STRING_TRUE = "true";
+    private static final String BOOLEAN_STRING_FALSE = "false";
+    private static final String DOUBLE_STRING = "45.67";
+
+    /* --------------------------------------------------------------------- *
+     *  Basic conversion tests
+     * --------------------------------------------------------------------- */
+
+    @Test
+    public void testConvertStringToInteger() {
+        Integer result = Converter.convert(NUMBER_STRING, Integer.class);
+        assertEquals(Integer.valueOf(12345), result);
+    }
+
+    @Test
+    public void testConvertStringToDouble() {
+        Double result = Converter.convert(DOUBLE_STRING, Double.class);
+        assertEquals(Double.valueOf(45.67), result);
+    }
+
+    @Test
+    public void testConvertStringToBoolean() {
+        Boolean trueResult = Converter.convert(BOOLEAN_STRING_TRUE, Boolean.class);
+        Boolean falseResult = Converter.convert(BOOLEAN_STRING_FALSE, Boolean.class);
+        assertTrue(trueResult);
+        assertFalse(falseResult);
+    }
+
+    @Test
+    public void testConvertDateToInstant() {
+        Date now = new Date();
+        Instant instant = Converter.convert(now, Instant.class);
+        assertEquals(now.toInstant(), instant);
+    }
+
+    /* --------------------------------------------------------------------- *
+     *  Null handling – primitive defaults
+     * --------------------------------------------------------------------- */
+
+    @Test
+    public void testNullToPrimitiveDefaults() {
+        assertEquals(0, Converter.convert2int(null));
+        assertEquals(0L, Converter.convert2long(null));
+        assertEquals(0.0f, Converter.convert2float(null), 0.0f);
+        assertEquals(0.0d, Converter.convert2double(null), 0.0d);
+        assertEquals((short) 0, Converter.convert2short(null));
+        assertEquals((byte) 0, Converter.convert2byte(null));
+        assertEquals((char) 0, Converter.convert2char(null));
+        assertFalse(Converter.convert2boolean(null));
+    }
+
+    /* --------------------------------------------------------------------- *
+     *  Null handling – object return types
+     * --------------------------------------------------------------------- */
+
+    @Test
+    public void testNullToObjectReturnsNull() {
+        assertNull(Converter.convertToInteger(null));
+        assertNull(Converter.convertToLong(null));
+        assertNull(Converter.convertToFloat(null));
+        assertNull(Converter.convertToDouble(null));
+        assertNull(Converter.convertToBoolean(null));
+        assertNull(Converter.convertToDate(null));
+        assertNull(Converter.convertToLocalDate(null));
+        assertNull(Converter.convertToLocalDateTime(null));
+        assertNull(Converter.convertToZonedDateTime(null));
+        assertNull(Converter.convertToCalendar(null));
+        assertNull(Converter.convertToString(null));
+        assertNull(Converter.convertToBigDecimal(null));
+        assertNull(Converter.convertToBigInteger(null));
+        assertNull(Converter.convertToSqlDate(null));
+        assertNull(Converter.convertToTimestamp(null));
+        assertNull(Converter.convertToCharacter(null));
+        assertNull(Converter.convertToByte(null));
+        assertNull(Converter.convertToShort(null));
+        assertNull(Converter.convertToAtomicInteger(null));
+        assertNull(Converter.convertToAtomicLong(null));
+        assertNull(Converter.convertToAtomicBoolean(null));
+    }
+
+    /* --------------------------------------------------------------------- *
+     *  Special “convert2*” methods that supply defaults for null
+     * --------------------------------------------------------------------- */
+
+    @Test
+    public void testConvert2StringNullReturnsEmpty() {
+        assertEquals("", Converter.convert2String(null));
+    }
+
+    @Test
+    public void testConvert2BigDecimalNullReturnsZero() {
+        assertEquals(BigDecimal.ZERO, Converter.convert2BigDecimal(null));
+    }
+
+    @Test
+    public void testConvert2BigIntegerNullReturnsZero() {
+        assertEquals(BigInteger.ZERO, Converter.convert2BigInteger(null));
+    }
+
+    @Test
+    public void testConvert2AtomicIntegerNullReturnsZeroInstance() {
+        AtomicInteger ai = Converter.convert2AtomicInteger(null);
+        assertNotNull(ai);
+        assertEquals(0, ai.get());
+    }
+
+    @Test
+    public void testConvert2AtomicLongNullReturnsZeroInstance() {
+        AtomicLong al = Converter.convert2AtomicLong(null);
+        assertNotNull(al);
+        assertEquals(0L, al.get());
+    }
+
+    @Test
+    public void testConvert2AtomicBooleanNullReturnsFalseInstance() {
+        AtomicBoolean ab = Converter.convert2AtomicBoolean(null);
+        assertNotNull(ab);
+        assertFalse(ab.get());
+    }
+
+    /* --------------------------------------------------------------------- *
+     *  Support‑query methods
+     * --------------------------------------------------------------------- */
+
+    @Test
+    public void testIsConversionSupportedFor() {
+        assertTrue(Converter.isConversionSupportedFor(String.class, Integer.class));
+        assertTrue(Converter.isConversionSupportedFor(String.class, Boolean.class));
+        // array‑to‑array conversion should be supported for simple component types
+        assertTrue(Converter.isConversionSupportedFor(String[].class, Integer[].class));
+
+        // unsupported conversion (e.g., String → Thread)
+        assertFalse(Converter.isConversionSupportedFor(String.class, Thread.class));
+    }
+
+    @Test
+    public void testIsSimpleTypeConversionSupported() {
+        assertTrue(Converter.isSimpleTypeConversionSupported(String.class, Integer.class));
+        assertFalse(Converter.isSimpleTypeConversionSupported(String[].class, Integer[].class));
+        assertFalse(Converter.isSimpleTypeConversionSupported(java.util.List.class, java.util.Set.class));
+    }
+
+    @Test
+    public void testAllSupportedConversionsNotEmpty() {
+        assertNotNull(Converter.allSupportedConversions());
+        assertFalse(Converter.allSupportedConversions().isEmpty());
+    }
+
+    @Test
+    public void testGetSupportedConversionsNotEmpty() {
+        assertNotNull(Converter.getSupportedConversions());
+        assertFalse(Converter.getSupportedConversions().isEmpty());
+    }
+
+    /* --------------------------------------------------------------------- *
+     *  Custom conversion registration
+     * --------------------------------------------------------------------- */
+
+    @Test
+    public void testAddCustomConversion() {
+        // custom conversion: "yes"/"no" → Boolean (true/false)
+        Convert<Boolean> yesNoToBoolean = (from, conv) -> {
+            if (from instanceof String) {
+                String s = ((String) from).trim().toLowerCase();
+                return s.equals("yes");
+            }
+            return false;
+        };
+        // Register the custom conversion
+        Converter.addConversion(String.class, Boolean.class, yesNoToBoolean);
+
+        // Verify that the new conversion works
+        assertTrue(Converter.convert("yes", Boolean.class));
+        assertFalse(Converter.convert("no", Boolean.class));
+
+        // The support‑query methods should now report the conversion as supported
+        assertTrue(Converter.isConversionSupportedFor(String.class, Boolean.class));
+    }
+
+    /* --------------------------------------------------------------------- *
+     *  Illegal arguments & exception handling
+     * --------------------------------------------------------------------- */
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testConvertNullTargetClassThrows() {
+        // Target class is null – should raise IllegalArgumentException
+        Converter.convert("123", null);
+    }
+
+    @Test
+    public void testUnsupportedConversionThrows() {
+        try {
+            // Attempt a conversion that is not supported (String → Thread)
+            Converter.convert("thread", Thread.class);
+            fail("Expected IllegalArgumentException for unsupported conversion");
+        } catch (IllegalArgumentException e) {
+            // expected
+        }
+    }
+
+    /* --------------------------------------------------------------------- *
+     *  Deprecated date‑to‑millis helpers
+     * --------------------------------------------------------------------- */
+
+    @Test
+    public void testDeprecatedLocalDateToMillis() {
+        LocalDate ld = LocalDate.of(1970, 1, 2); // one day after epoch
+        long millis = Converter.localDateToMillis(ld);
+        assertEquals(24L * 60 * 60 * 1000, millis);
+    }
+
+    @Test
+    public void testDeprecatedLocalDateTimeToMillis() {
+        LocalDateTime ldt = LocalDateTime.of(1970, 1, 1, 1, 0, 0); // one hour after epoch
+        long millis = Converter.localDateTimeToMillis(ldt);
+        assertEquals(60L * 60 * 1000, millis);
+    }
+
+    @Test
+    public void testDeprecatedZonedDateTimeToMillis() {
+        ZonedDateTime zdt = ZonedDateTime.of(1970, 1, 1, 0, 0, 1, 0, java.time.ZoneOffset.UTC);
+        long millis = Converter.zonedDateTimeToMillis(zdt);
+        assertEquals(1000L, millis);
+    }
+
+    /* --------------------------------------------------------------------- *
+     *  Additional sanity checks for primitive‑wrapper conversions
+     * --------------------------------------------------------------------- */
+
+    @Test
+    public void testPrimitiveWrapperConversions() {
+        // primitive → wrapper
+        Integer wrapped = Converter.convert(42, Integer.class);
+        assertEquals(Integer.valueOf(42), wrapped);
+
+        // wrapper → primitive
+        int primitive = Converter.convert2int(Integer.valueOf(99));
+        assertEquals(99, primitive);
+    }
+
+    @Test
+    public void testMapToStringViaConvertToString() {
+        Map<String, Object> map = new HashMap<>();
+        map.put("value", "hello");
+        String result = Converter.convertToString(map);
+        // The underlying converter treats a Map with a "value" key as the source value
+        assertEquals("hello", result);
+    }
+}

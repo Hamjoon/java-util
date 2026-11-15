@@ -1,0 +1,339 @@
+package com.cedarsoftware.util;
+import com.cedarsoftware.util.Traverser.Visitor;
+
+
+import org.junit.Test;
+import org.junit.Before;
+
+import java.lang.reflect.Field;
+import java.util.*;
+import java.util.function.Consumer;
+
+import static org.junit.Assert.*;
+
+/**
+ * Comprehensive JUnit‑4 test suite for {@link Traverser}.
+ *
+ * The tests cover:
+ * <ul>
+ *   <li>All public API methods (including deprecated overloads)</li>
+ *   <li>Basic functionality for objects, arrays, collections and maps</li>
+ *   <li>Edge‑case handling: null root, null visitor, cycles, primitive arrays,
+ *       skipping classes, null collection/map entries</li>
+ *   <li>Correctness of {@link Traverser.NodeVisit} getters</li>
+ * </ul>
+ */
+public class TraverserTest {
+
+    /** Helper consumer that records every visited {@link NodeVisit}. */
+    private static class RecordingConsumer implements Consumer<Traverser.NodeVisit> {
+        final List<Traverser.NodeVisit> visits = new ArrayList<>();
+
+        @Override
+        public void accept(Traverser.NodeVisit nodeVisit) {
+            visits.add(nodeVisit);
+        }
+    }
+
+    /** Simple POJO used in many tests. */
+    private static class Simple {
+        int primitive = 42;
+        String text = "hello";
+    }
+
+    /** POJO with a reference field, used for cycle detection. */
+    private static class Node {
+        Node next;
+        String name;
+        Node(String name) { this.name = name; }
+    }
+
+    /** POJO with a private field – we want to ensure the field is still reported. */
+    private static class WithPrivate {
+        private final String secret = "top";
+        public WithPrivate() {}
+    }
+
+    private RecordingConsumer recorder;
+
+    @Before
+    public void setUp() {
+        recorder = new RecordingConsumer();
+    }
+
+    /* ---------------------------------------------------------------------- */
+    /*  1.  Public API method signatures (for documentation)                 */
+    /* ---------------------------------------------------------------------- */
+
+    // public static void Traverser.traverse(Object root,
+    //                                        Consumer<NodeVisit> visitor,
+    //                                        Set<Class<?>> classesToSkip)
+
+    // @Deprecated public static void Traverser.traverse(Object root,
+    //                                                    Visitor visitor)
+
+    // @Deprecated public static void Traverser.traverse(Object root,
+    //                                                    Class<?>[] skip,
+    //                                                    Visitor visitor)
+
+    // public Object Traverser.NodeVisit.getNode()
+    // public Map<Field,Object> Traverser.NodeVisit.getFields()
+    // public Class<?> Traverser.NodeVisit.getNodeClass()
+
+    /* ---------------------------------------------------------------------- */
+    /*  2.  Basic functionality tests                                         */
+    /* ---------------------------------------------------------------------- */
+
+    @Test
+    public void testTraverseSimpleObject() {
+        Simple root = new Simple();
+
+        Traverser.traverse(root, recorder, null);
+
+        // Expect exactly one visit – the root object itself.
+        assertEquals(1, recorder.visits.size());
+
+        Traverser.NodeVisit visit = recorder.visits.get(0);
+        assertSame(root, visit.getNode());
+        assertEquals(Simple.class, visit.getNodeClass());
+
+        Map<Field, Object> fields = visit.getFields();
+        // The Simple class has two declared fields.
+        assertEquals(2, fields.size());
+
+        // Verify field values via reflection (order not guaranteed).
+        boolean foundPrimitive = false, foundText = false;
+        for (Map.Entry<Field, Object> e : fields.entrySet()) {
+            Field f = e.getKey();
+            Object v = e.getValue();
+            if (f.getName().equals("primitive")) {
+                assertEquals(42, v);
+                foundPrimitive = true;
+            } else if (f.getName().equals("text")) {
+                assertEquals("hello", v);
+                foundText = true;
+            }
+        }
+        assertTrue(foundPrimitive && foundText);
+    }
+
+    @Test
+    public void testTraverseArrayOfObjects() {
+        Simple a = new Simple();
+        Simple b = new Simple();
+        Simple[] array = new Simple[]{a, b};
+
+        Traverser.traverse(array, recorder, null);
+
+        // Visits: the array itself + two element objects.
+        assertEquals(3, recorder.visits.size());
+
+        // Verify that both element objects appear exactly once.
+        Set<Object> visitedNodes = new HashSet<>();
+        for (Traverser.NodeVisit v : recorder.visits) {
+            visitedNodes.add(v.getNode());
+        }
+        assertTrue(visitedNodes.contains(array));
+        assertTrue(visitedNodes.contains(a));
+        assertTrue(visitedNodes.contains(b));
+    }
+
+    @Test
+    public void testTraverseArrayOfPrimitives() {
+        int[] primitives = new int[]{1, 2, 3};
+
+        Traverser.traverse(primitives, recorder, null);
+
+        // Primitive arrays are visited as a single node; their elements are NOT
+        // traversed because they are primitive.
+        assertEquals(1, recorder.visits.size());
+        assertSame(primitives, recorder.visits.get(0).getNode());
+    }
+
+    @Test
+    public void testTraverseCollection() {
+        List<Object> list = new ArrayList<>();
+        Simple simple = new Simple();
+        String str = "test";
+        list.add(simple);
+        list.add(str);
+        list.add(null); // null element must be ignored safely
+
+        Traverser.traverse(list, recorder, null);
+
+        // Visits: the collection itself + simple + string (null ignored)
+        assertEquals(3, recorder.visits.size());
+
+        Set<Object> visited = new HashSet<>();
+        for (Traverser.NodeVisit v : recorder.visits) {
+            visited.add(v.getNode());
+        }
+        assertTrue(visited.contains(list));
+        assertTrue(visited.contains(simple));
+        assertTrue(visited.contains(str));
+    }
+
+    @Test
+    public void testTraverseMap() {
+        Map<String, Simple> map = new HashMap<>();
+        Simple val = new Simple();
+        map.put("key", val);
+        map.put(null, new Simple()); // null key should be ignored safely
+        map.put("nullValue", null);   // null value should be ignored safely
+
+        Traverser.traverse(map, recorder, null);
+
+        // Visits: the map itself + the key "key" + the value object.
+        assertEquals(3, recorder.visits.size());
+
+        Set<Object> visited = new HashSet<>();
+        for (Traverser.NodeVisit v : recorder.visits) {
+            visited.add(v.getNode());
+        }
+        assertTrue(visited.contains(map));
+        assertTrue(visited.contains("key"));
+        assertTrue(visited.contains(val));
+    }
+
+    @Test
+    public void testTraverseWithSkipClass() {
+        Simple root = new Simple(); // contains a String field "text"
+
+        Set<Class<?>> skip = new HashSet<>();
+        skip.add(String.class); // we want to skip String objects
+
+        Traverser.traverse(root, recorder, skip);
+
+        // Visits: root object + its primitive field (int) – the String field
+        // value must NOT be visited as a separate node.
+        assertEquals(1, recorder.visits.size());
+        assertSame(root, recorder.visits.get(0).getNode());
+
+        // Verify that the String value is present in the field map but its
+        // object was not traversed as a separate node.
+        Map<Field, Object> fields = recorder.visits.get(0).getFields();
+        boolean hasStringField = false;
+        for (Map.Entry<Field, Object> e : fields.entrySet()) {
+            if (e.getKey().getType() == String.class) {
+                hasStringField = true;
+                assertEquals("hello", e.getValue());
+            }
+        }
+        assertTrue(hasStringField);
+    }
+
+    @Test
+    public void testTraverseCyclicGraph() {
+        Node n1 = new Node("first");
+        Node n2 = new Node("second");
+        n1.next = n2;
+        n2.next = n1; // creates a cycle
+
+        Traverser.traverse(n1, recorder, null);
+
+        // Each node should be visited exactly once; the traversal must terminate.
+        assertEquals(2, recorder.visits.size());
+
+        Set<Object> visited = new HashSet<>();
+        for (Traverser.NodeVisit v : recorder.visits) {
+            visited.add(v.getNode());
+        }
+        assertTrue(visited.contains(n1));
+        assertTrue(visited.contains(n2));
+    }
+
+    @Test
+    public void testTraverseNullRootDoesNothing() {
+        Traverser.traverse(null, recorder, null);
+        assertTrue(recorder.visits.isEmpty());
+    }
+
+    /* ---------------------------------------------------------------------- */
+    /*  3.  Exception / edge‑case tests                                        */
+    /* ---------------------------------------------------------------------- */
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testTraverseVisitorNullThrows() {
+        Traverser.traverse(new Simple(), null, null);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testDeprecatedTraverseVisitorNullThrows() {
+        Traverser.traverse(new Simple(), (Visitor) null);
+    }
+
+    @Test
+    public void testDeprecatedTraverseWithVisitor() {
+        final List<Object> visited = new ArrayList<>();
+        Traverser.Visitor visitor = visited::add; // method reference
+
+        Simple root = new Simple();
+
+        Traverser.traverse(root, visitor);
+
+        // Deprecated API still visits the root object only.
+        assertEquals(1, visited.size());
+        assertSame(root, visited.get(0));
+    }
+
+    @Test
+    public void testDeprecatedTraverseWithSkipArray() {
+        Simple root = new Simple();
+        Class<?>[] skip = new Class<?>[]{String.class};
+
+        final List<Object> visited = new ArrayList<>();
+        Traverser.Visitor visitor = visited::add;
+
+        Traverser.traverse(root, skip, visitor);
+
+        // The root is visited; the String field value is skipped.
+        assertEquals(1, visited.size());
+        assertSame(root, visited.get(0));
+    }
+
+    /* ---------------------------------------------------------------------- */
+    /*  4.  NodeVisit getter validation                                        */
+    /* ---------------------------------------------------------------------- */
+
+    @Test
+    public void testNodeVisitGetters() throws NoSuchFieldException {
+        Simple node = new Simple();
+        Map<Field, Object> fieldMap = new HashMap<>();
+        Field f = Simple.class.getDeclaredField("primitive");
+        fieldMap.put(f, 42);
+
+        Traverser.NodeVisit visit = new Traverser.NodeVisit(node, fieldMap);
+
+        assertSame(node, visit.getNode());
+        assertEquals(Simple.class, visit.getNodeClass());
+
+        Map<Field, Object> returnedMap = visit.getFields();
+        assertEquals(1, returnedMap.size());
+        assertTrue(returnedMap.containsKey(f));
+        assertEquals(42, returnedMap.get(f));
+
+        // Verify that the returned map is unmodifiable.
+        try {
+            returnedMap.put(f, 99);
+            fail("Expected UnsupportedOperationException for unmodifiable map");
+        } catch (UnsupportedOperationException expected) {
+            // expected
+        }
+    }
+
+    @Test
+    public void testNodeVisitIncludesPrivateField() throws NoSuchFieldException {
+        WithPrivate obj = new WithPrivate();
+        Traverser.traverse(obj, recorder, null);
+
+        // One visit for the object itself.
+        assertEquals(1, recorder.visits.size());
+        Traverser.NodeVisit visit = recorder.visits.get(0);
+        Map<Field, Object> fields = visit.getFields();
+
+        // The private field should be present and accessible.
+        Field privateField = WithPrivate.class.getDeclaredField("secret");
+        assertTrue(fields.containsKey(privateField));
+        assertEquals("top", fields.get(privateField));
+    }
+}

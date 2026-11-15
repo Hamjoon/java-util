@@ -1,0 +1,495 @@
+package com.cedarsoftware.util.convert;
+
+import static org.junit.Assert.*;
+
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.net.URI;
+import java.net.URL;
+import java.sql.Timestamp;
+import java.time.*;
+import java.util.*;
+
+import org.junit.Before;
+import org.junit.Test;
+
+/**
+ * Comprehensive JUnit‑4 test suite for {@link MapConversions}.
+ *
+ * The tests exercise every public static method in the class, covering
+ * the different map‑key branches, the fallback path that throws an
+ * {@code IllegalArgumentException}, and the special handling logic for
+ * dates, times, locales, periods, zones, etc.
+ *
+ * The real {@link Converter} implementation from the library is used – a
+ * fresh instance is created for each test case (with default options) so
+ * that the conversion logic is exercised exactly as the library intends.
+ */
+public class MapConversionsTest {
+
+    private Converter converter;
+
+    @Before
+    public void setUp() {
+        // ConverterOptions has a public no‑arg constructor in the library.
+        converter = new Converter(new ConverterOptions());
+    }
+
+    /** Helper to create a {@link CompactLinkedMap} with alternating key/value arguments. */
+    @SuppressWarnings("unchecked")
+    private static CompactLinkedMap<String, Object> map(Object... keyValues) {
+        CompactLinkedMap<String, Object> m = new CompactLinkedMap<>();
+        for (int i = 0; i < keyValues.length; i += 2) {
+            m.put((String) keyValues[i], keyValues[i + 1]);
+        }
+        return m;
+    }
+
+    // -------------------------------------------------------------------------
+    // UUID
+    // -------------------------------------------------------------------------
+
+    @Test
+    public void testToUUID_fromStringKey() {
+        CompactLinkedMap<String, Object> m = map(MapConversions.UUID, "123e4567-e89b-12d3-a456-426655440000");
+        Object uuid = MapConversions.toUUID(m, converter);
+        assertEquals(UUID.fromString("123e4567-e89b-12d3-a456-426655440000"), uuid);
+    }
+
+    @Test
+    public void testToUUID_fromMostAndLeastSigBits() {
+        long most = 0x1234567890ABCDEFL;
+        long least = 0x0FEDCBA987654321L;
+        CompactLinkedMap<String, Object> m = map(MapConversions.MOST_SIG_BITS, most,
+                                                MapConversions.LEAST_SIG_BITS, least);
+        Object uuid = MapConversions.toUUID(m, converter);
+        assertEquals(new UUID(most, least), uuid);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testToUUID_missingKeys_throwsException() {
+        // No UUID, no most/least bits – should fall back to fromMap and fail.
+        CompactLinkedMap<String, Object> m = map("something", "else");
+        MapConversions.toUUID(m, converter);
+    }
+
+    // -------------------------------------------------------------------------
+    // Primitive wrappers and simple types
+    // -------------------------------------------------------------------------
+
+    @Test
+    public void testSimpleConversions() {
+        CompactLinkedMap<String, Object> m = map("_v", "42");
+        assertEquals(Byte.valueOf((byte)42), MapConversions.toByte(m, converter));
+        assertEquals(Short.valueOf((short)42), MapConversions.toShort(m, converter));
+        assertEquals(Integer.valueOf(42), MapConversions.toInt(m, converter));
+        assertEquals(Long.valueOf(42L), MapConversions.toLong(m, converter));
+        assertEquals(Float.valueOf(42f), MapConversions.toFloat(m, converter));
+        assertEquals(Double.valueOf(42d), MapConversions.toDouble(m, converter));
+        assertEquals(Boolean.TRUE, MapConversions.toBoolean(map("_v", true), converter));
+        assertEquals(new BigDecimal("123.45"), MapConversions.toBigDecimal(map("_v", "123.45"), converter));
+        assertEquals(new BigInteger("9876543210"), MapConversions.toBigInteger(map("_v", "9876543210"), converter));
+        assertEquals("hello", MapConversions.toString(map("_v", "hello"), converter));
+        assertEquals(new StringBuffer("buf"), MapConversions.toStringBuffer(map("_v", "buf"), converter));
+        assertEquals(new StringBuilder("builder"), MapConversions.toStringBuilder(map("_v", "builder"), converter));
+        assertEquals(Character.valueOf('c'), MapConversions.toCharacter(map("_v", 'c'), converter));
+        assertEquals(new AtomicInteger(7), MapConversions.toAtomicInteger(map("_v", 7), converter));
+        assertEquals(new AtomicLong(99L), MapConversions.toAtomicLong(map("_v", 99L), converter));
+        assertEquals(new AtomicBoolean(true), MapConversions.toAtomicBoolean(map("_v", true), converter));
+    }
+
+    // -------------------------------------------------------------------------
+    // Date / Timestamp
+    // -------------------------------------------------------------------------
+
+    @Test
+    public void testToDate_fromEpochMillis() {
+        long epoch = 1633072800123L; // 2021‑10‑01T12:00:00.123Z
+        CompactLinkedMap<String, Object> m = map(MapConversions.EPOCH_MILLIS, epoch);
+        Date d = MapConversions.toDate(m, converter);
+        assertEquals(epoch, d.getTime());
+    }
+
+    @Test
+    public void testToDate_fromComponents() {
+        CompactLinkedMap<String, Object> m = map(
+                MapConversions.DATE, "2022-03-15",
+                MapConversions.TIME, "10:20:30.456",
+                MapConversions.ZONE, "UTC");
+        Date d = MapConversions.toDate(m, converter);
+        // 2022‑03‑15T10:20:30.456Z in milliseconds
+        Instant instant = Instant.parse("2022-03-15T10:20:30.456Z");
+        assertEquals(instant.toEpochMilli(), d.getTime());
+    }
+
+    @Test
+    public void testToTimestamp_withExplicitNanos() {
+        long epoch = 1609459200000L; // 2021‑01‑01T00:00:00Z
+        CompactLinkedMap<String, Object> m = map(
+                MapConversions.EPOCH_MILLIS, epoch,
+                MapConversions.NANOS, 123456789);
+        Timestamp ts = MapConversions.toTimestamp(m, converter);
+        assertEquals(epoch, ts.getTime());
+        assertEquals(123456789, ts.getNanos());
+    }
+
+    @Test
+    public void testToTimestamp_fromTimeComponents() {
+        CompactLinkedMap<String, Object> m = map(
+                MapConversions.DATE, "2020-02-29",
+                MapConversions.TIME, "23:59:59.999999999",
+                MapConversions.ZONE, "UTC");
+        Timestamp ts = MapConversions.toTimestamp(m, converter);
+        Instant instant = Instant.parse("2020-02-29T23:59:59.999999999Z");
+        assertEquals(instant.toEpochMilli(), ts.getTime());
+        assertEquals(999_999_999, ts.getNanos());
+    }
+
+    // -------------------------------------------------------------------------
+    // TimeZone and Calendar
+    // -------------------------------------------------------------------------
+
+    @Test
+    public void testToTimeZone_simple() {
+        CompactLinkedMap<String, Object> m = map(MapConversions.ZONE, "America/New_York");
+        TimeZone tz = MapConversions.toTimeZone(m, converter);
+        assertEquals(TimeZone.getTimeZone("America/New_York").getID(), tz.getID());
+    }
+
+    @Test
+    public void testToCalendar_fromEpochMillis() {
+        long epoch = 1622505600000L; // 2021‑06‑01T00:00:00Z
+        CompactLinkedMap<String, Object> m = map(MapConversions.EPOCH_MILLIS, epoch);
+        Calendar cal = MapConversions.toCalendar(m, converter);
+        assertEquals(epoch, cal.getTimeInMillis());
+    }
+
+    @Test
+    public void testToCalendar_fromDateAndTimeAndZone() {
+        CompactLinkedMap<String, Object> m = map(
+                MapConversions.DATE, "2021-12-31",
+                MapConversions.TIME, "23:00:00",
+                MapConversions.ZONE, "Europe/Paris");
+        Calendar cal = MapConversions.toCalendar(m, converter);
+        ZonedDateTime zdt = ZonedDateTime.of(
+                LocalDate.of(2021, 12, 31),
+                LocalTime.of(23, 0),
+                ZoneId.of("Europe/Paris"));
+        assertEquals(zdt.toInstant().toEpochMilli(), cal.getTimeInMillis());
+    }
+
+    // -------------------------------------------------------------------------
+    // Locale
+    // -------------------------------------------------------------------------
+
+    @Test
+    public void testToLocale_fullBuilder() {
+        CompactLinkedMap<String, Object> m = map(
+                MapConversions.LANGUAGE, "en",
+                MapConversions.COUNTRY, "US",
+                MapConversions.SCRIPT, "Latn",
+                MapConversions.VARIANT, "POSIX");
+        Locale locale = MapConversions.toLocale(m, converter);
+        assertEquals("en", locale.getLanguage());
+        assertEquals("US", locale.getCountry());
+        assertEquals("Latn", locale.getScript());
+        assertEquals("POSIX", locale.getVariant());
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testToLocale_invalidLanguage() {
+        CompactLinkedMap<String, Object> m = map(MapConversions.LANGUAGE, "invalid-lang");
+        MapConversions.toLocale(m, converter);
+    }
+
+    // -------------------------------------------------------------------------
+    // LocalDate / LocalTime / OffsetTime / OffsetDateTime / ZonedDateTime
+    // -------------------------------------------------------------------------
+
+    @Test
+    public void testToLocalDate_fromComponents() {
+        CompactLinkedMap<String, Object> m = map(
+                MapConversions.YEAR, 2022,
+                MapConversions.MONTH, 7,
+                MapConversions.DAY, 14);
+        LocalDate ld = MapConversions.toLocalDate(m, converter);
+        assertEquals(LocalDate.of(2022, 7, 14), ld);
+    }
+
+    @Test
+    public void testToLocalDate_fromDateString() {
+        CompactLinkedMap<String, Object> m = map(MapConversions.DATE, "2022-08-01");
+        LocalDate ld = MapConversions.toLocalDate(m, converter);
+        assertEquals(LocalDate.of(2022, 8, 1), ld);
+    }
+
+    @Test
+    public void testToLocalTime_fromComponents() {
+        CompactLinkedMap<String, Object> m = map(
+                MapConversions.HOUR, 13,
+                MapConversions.MINUTE, 45,
+                MapConversions.SECOND, 30,
+                MapConversions.NANOS, 123456789);
+        LocalTime lt = MapConversions.toLocalTime(m, converter);
+        assertEquals(LocalTime.of(13, 45, 30, 123456789), lt);
+    }
+
+    @Test
+    public void testToLocalTime_fromTimeString() {
+        CompactLinkedMap<String, Object> m = map(MapConversions.TIME, "09:15:00");
+        LocalTime lt = MapConversions.toLocalTime(m, converter);
+        assertEquals(LocalTime.of(9, 15), lt);
+    }
+
+    @Test
+    public void testToOffsetTime_withExplicitOffset() {
+        CompactLinkedMap<String, Object> m = map(
+                MapConversions.HOUR, 10,
+                MapConversions.MINUTE, 20,
+                MapConversions.SECOND, 0,
+                MapConversions.NANOS, 0,
+                MapConversions.OFFSET_HOUR, -5,
+                MapConversions.OFFSET_MINUTE, 0);
+        OffsetTime ot = MapConversions.toOffsetTime(m, converter);
+        assertEquals(OffsetTime.of(10, 20, 0, 0, ZoneOffset.ofHours(-5)), ot);
+    }
+
+    @Test
+    public void testToOffsetTime_fromTimeString() {
+        CompactLinkedMap<String, Object> m = map(MapConversions.TIME, "12:34:56+02:00");
+        OffsetTime ot = MapConversions.toOffsetTime(m, converter);
+        assertEquals(OffsetTime.parse("12:34:56+02:00"), ot);
+    }
+
+    @Test
+    public void testToOffsetDateTime_timeAndOffsetOnly() {
+        CompactLinkedMap<String, Object> m = map(
+                MapConversions.TIME, "2021-05-10T15:30:00",
+                MapConversions.OFFSET, "+01:00");
+        OffsetDateTime odt = MapConversions.toOffsetDateTime(m, converter);
+        assertEquals(OffsetDateTime.of(LocalDateTime.of(2021,5,10,15,30,0), ZoneOffset.ofHours(1)), odt);
+    }
+
+    @Test
+    public void testToOffsetDateTime_full() {
+        CompactLinkedMap<String, Object> m = map(
+                MapConversions.DATE, "2021-12-24",
+                MapConversions.TIME, "23:59:59",
+                MapConversions.OFFSET, "-03:30");
+        OffsetDateTime odt = MapConversions.toOffsetDateTime(m, converter);
+        assertEquals(OffsetDateTime.of(
+                LocalDate.of(2021,12,24),
+                LocalTime.of(23,59,59),
+                ZoneOffset.ofHoursMinutes(-3, -30)), odt);
+    }
+
+    @Test
+    public void testToZonedDateTime_fromEpochMillis() {
+        long epoch = 1625097600000L; // 2021‑07‑01T00:00:00Z
+        CompactLinkedMap<String, Object> m = map(MapConversions.EPOCH_MILLIS, epoch);
+        ZonedDateTime zdt = MapConversions.toZonedDateTime(m, converter);
+        assertEquals(ZonedDateTime.ofInstant(Instant.ofEpochMilli(epoch), ZoneOffset.UTC), zdt);
+    }
+
+    @Test
+    public void testToZonedDateTime_fromComponents() {
+        CompactLinkedMap<String, Object> m = map(
+                MapConversions.DATE, "2020-01-02",
+                MapConversions.TIME, "03:04:05",
+                MapConversions.ZONE, "Asia/Tokyo");
+        ZonedDateTime zdt = MapConversions.toZonedDateTime(m, converter);
+        assertEquals(ZonedDateTime.of(
+                LocalDate.of(2020,1,2),
+                LocalTime.of(3,4,5),
+                ZoneId.of("Asia/Tokyo")), zdt);
+    }
+
+    // -------------------------------------------------------------------------
+    // Class, URL, URI
+    // -------------------------------------------------------------------------
+
+    @Test
+    public void testToClass() {
+        CompactLinkedMap<String, Object> m = map("_v", String.class);
+        Class<?> c = MapConversions.toClass(m, converter);
+        assertEquals(String.class, c);
+    }
+
+    @Test
+    public void testToURL() throws Exception {
+        String urlStr = "https://example.com/path?query=1";
+        CompactLinkedMap<String, Object> m = map(MapConversions.URL_KEY, urlStr);
+        URL url = MapConversions.toURL(m, converter);
+        assertEquals(new URL(urlStr), url);
+    }
+
+    @Test
+    public void testToURI() throws Exception {
+        String uriStr = "mailto:user@example.com";
+        CompactLinkedMap<String, Object> m = map(MapConversions.URI_KEY, uriStr);
+        URI uri = MapConversions.toURI(m, converter);
+        assertEquals(new URI(uriStr), uri);
+    }
+
+    // -------------------------------------------------------------------------
+    // Duration / Instant
+    // -------------------------------------------------------------------------
+
+    @Test
+    public void testToDuration_fromSecondsAndNanos() {
+        CompactLinkedMap<String, Object> m = map(
+                MapConversions.SECONDS, 5L,
+                MapConversions.NANOS, 250);
+        Duration d = MapConversions.toDuration(m, converter);
+        assertEquals(Duration.ofSeconds(5, 250), d);
+    }
+
+    @Test
+    public void testToInstant_fromSecondsAndNanos() {
+        CompactLinkedMap<String, Object> m = map(
+                MapConversions.SECONDS, 1609459200L,
+                MapConversions.NANOS, 123456789);
+        Instant i = MapConversions.toInstant(m, converter);
+        assertEquals(Instant.ofEpochSecond(1609459200L, 123456789), i);
+    }
+
+    // -------------------------------------------------------------------------
+    // MonthDay / YearMonth / Period
+    // -------------------------------------------------------------------------
+
+    @Test
+    public void testToMonthDay() {
+        CompactLinkedMap<String, Object> m = map(
+                MapConversions.MONTH, 2,
+                MapConversions.DAY, 29);
+        MonthDay md = MapConversions.toMonthDay(m, converter);
+        assertEquals(MonthDay.of(2, 29), md);
+    }
+
+    @Test
+    public void testToYearMonth() {
+        CompactLinkedMap<String, Object> m = map(
+                MapConversions.YEAR, 2023,
+                MapConversions.MONTH, 12);
+        YearMonth ym = MapConversions.toYearMonth(m, converter);
+        assertEquals(YearMonth.of(2023, 12), ym);
+    }
+
+    @Test
+    public void testToPeriod_usingExplicitFields() {
+        CompactLinkedMap<String, Object> m = map(
+                MapConversions.YEARS, 1,
+                MapConversions.MONTHS, 2,
+                MapConversions.DAYS, 3);
+        Period p = MapConversions.toPeriod(m, converter);
+        assertEquals(Period.of(1, 2, 3), p);
+    }
+
+    @Test
+    public void testToPeriod_fallbackViaValueKey() {
+        // The map contains a "value" key, forcing the generic path.
+        CompactLinkedMap<String, Object> m = map(MapConversions.VALUE, "P2Y3M4D");
+        Period p = MapConversions.toPeriod(m, converter);
+        assertEquals(Period.of(2, 3, 4), p);
+    }
+
+    // -------------------------------------------------------------------------
+    // ZoneId / ZoneOffset / Year
+    // -------------------------------------------------------------------------
+
+    @Test
+    public void testToZoneId_fromZoneKey() {
+        CompactLinkedMap<String, Object> m = map(MapConversions.ZONE, "Europe/London");
+        ZoneId zid = MapConversions.toZoneId(m, converter);
+        assertEquals(ZoneId.of("Europe/London"), zid);
+    }
+
+    @Test
+    public void testToZoneId_fromIdKey() {
+        CompactLinkedMap<String, Object> m = map(MapConversions.ID, "UTC");
+        ZoneId zid = MapConversions.toZoneId(m, converter);
+        assertEquals(ZoneId.of("UTC"), zid);
+    }
+
+    @Test
+    public void testToZoneOffset_fromHoursMinutesSeconds() {
+        CompactLinkedMap<String, Object> m = map(
+                MapConversions.HOURS, -5,
+                MapConversions.MINUTES, 30,
+                MapConversions.SECONDS, 15);
+        ZoneOffset zo = MapConversions.toZoneOffset(m, converter);
+        assertEquals(ZoneOffset.ofHoursMinutesSeconds(-5, 30, 15), zo);
+    }
+
+    @Test
+    public void testToZoneOffset_fallback() {
+        CompactLinkedMap<String, Object> m = map(MapConversions.HOURS, 2);
+        ZoneOffset zo = MapConversions.toZoneOffset(m, converter);
+        assertEquals(ZoneOffset.ofHours(2), zo);
+    }
+
+    @Test
+    public void testToYear() {
+        CompactLinkedMap<String, Object> m = map(MapConversions.YEAR, 1999);
+        Year y = MapConversions.toYear(m, converter);
+        assertEquals(Year.of(1999), y);
+    }
+
+    // -------------------------------------------------------------------------
+    // Throwable reconstruction
+    // -------------------------------------------------------------------------
+
+    @Test
+    public void testToThrowable_withCause() {
+        CompactLinkedMap<String, Object> m = map(
+                MapConversions.CLASS, "java.lang.IllegalArgumentException",
+                MapConversions.MESSAGE, "main message",
+                MapConversions.CAUSE, "java.lang.NullPointerException",
+                MapConversions.CAUSE_MESSAGE, "root cause");
+        Throwable t = MapConversions.toThrowable(m, converter);
+        assertTrue(t instanceof IllegalArgumentException);
+        assertEquals("main message", t.getMessage());
+        assertNotNull(t.getCause());
+        assertTrue(t.getCause() instanceof NullPointerException);
+        assertEquals("root cause", t.getCause().getMessage());
+    }
+
+    @Test
+    public void testToThrowable_withoutCause() {
+        CompactLinkedMap<String, Object> m = map(
+                MapConversions.CLASS, "java.lang.IllegalStateException",
+                MapConversions.MESSAGE, "only message");
+        Throwable t = MapConversions.toThrowable(m, converter);
+        assertTrue(t instanceof IllegalStateException);
+        assertEquals("only message", t.getMessage());
+        assertNull(t.getCause());
+    }
+
+    // -------------------------------------------------------------------------
+    // initMap and generic fromMap error handling
+    // -------------------------------------------------------------------------
+
+    @Test
+    public void testInitMap_wrapsValue() {
+        String original = "wrapped";
+        Map<String, ?> result = MapConversions.initMap(original, converter);
+        assertEquals(1, result.size());
+        assertTrue(result.containsKey(MapConversions.V));
+        assertEquals(original, result.get(MapConversions.V));
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void testFromMap_missingAllKeys_throwsException() {
+        // Force a direct call to the private helper via reflection to verify the message.
+        CompactLinkedMap<String, Object> m = map("unrelated", "value");
+        try {
+            java.lang.reflect.Method mtd = MapConversions.class.getDeclaredMethod(
+                    "fromMap", Object.class, Converter.class, Class.class, String[][].class);
+            mtd.setAccessible(true);
+            mtd.invoke(null, m, converter, Integer.class, new String[][]{{"missingKey"}});
+        } catch (java.lang.reflect.InvocationTargetException e) {
+            // unwrap the IllegalArgumentException thrown by the method.
+            throw (IllegalArgumentException) e.getCause();
+        }
+    }
+}

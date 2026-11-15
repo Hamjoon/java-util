@@ -1,0 +1,127 @@
+package com.cedarsoftware.util.convert;
+import com.cedarsoftware.util.CompactLinkedMap;
+
+
+import org.junit.Test;
+import org.junit.Before;
+import org.junit.Rule;
+import org.junit.rules.ExpectedException;
+
+import java.time.MonthDay;
+import java.util.Map;
+
+import static org.junit.Assert.*;
+
+/**
+ * Unit tests for {@link MonthDayConversions}.
+ *
+ * The tests cover:
+ * <ul>
+ *   <li>Typical conversion of a valid {@link MonthDay} to a map.</li>
+ *   <li>Edge cases such as February 29 on a leap year.</li>
+ *   <li>Behaviour when {@code null} is supplied as the source object.</li>
+ *   <li>Behaviour when an object of an incompatible type is supplied.</li>
+ *   <li>Verification that the returned map is a {@link CompactLinkedMap}
+ *       and that its iteration order matches insertion order.</li>
+ * </ul>
+ *
+ * Only public APIs listed in the problem statement are used; no mocking frameworks
+ * or external libraries are required.
+ */
+public class MonthDayConversionsTest {
+
+    private Converter converter; // dummy instance – not used by the method but required by signature
+
+    @Before
+    public void setUp() {
+        // The Converter constructor requires a ConverterOptions instance.
+        // Since the test does not rely on any conversion logic inside Converter,
+        // we can safely pass a default (empty) options object.
+        converter = new Converter(new ConverterOptions());
+    }
+
+    /**
+     * Verify that a normal MonthDay (e.g., March 15) is converted to a map
+     * containing the correct "day" and "month" entries, and that the map
+     * implementation is CompactLinkedMap preserving insertion order.
+     */
+    @Test
+    public void testToMap_TypicalMonthDay() {
+        MonthDay monthDay = MonthDay.of(3, 15); // March 15
+        Map<String, Object> result = MonthDayConversions.toMap(monthDay, converter);
+
+        // Verify the concrete type
+        assertTrue("Result should be an instance of CompactLinkedMap",
+                result instanceof CompactLinkedMap);
+
+        // Verify expected size
+        assertEquals("Map should contain exactly two entries", 2, result.size());
+
+        // Verify keys and values
+        assertEquals("Day value should match", 15, result.get("day"));
+        assertEquals("Month value should match", 3, result.get("month"));
+
+        // Verify insertion order (LinkedMap preserves order)
+        // The iterator should return "day" first, then "month"
+        String[] expectedOrder = {"day", "month"};
+        int index = 0;
+        for (String key : result.keySet()) {
+            assertEquals("Insertion order mismatch at position " + index,
+                    expectedOrder[index], key);
+            index++;
+        }
+        assertEquals("All expected keys should have been iterated", expectedOrder.length, index);
+    }
+
+    /**
+     * Verify conversion of a leap‑year date (February 29). This is an edge case
+     * because February 29 only exists on leap years, but MonthDay represents it
+     * without a year, so it should still be handled correctly.
+     */
+    @Test
+    public void testToMap_LeapYearFebruary29() {
+        MonthDay leapDay = MonthDay.of(2, 29); // February 29
+        Map<String, Object> result = MonthDayConversions.toMap(leapDay, converter);
+
+        assertEquals("Day should be 29 for February 29", 29, result.get("day"));
+        assertEquals("Month should be 2 for February", 2, result.get("month"));
+    }
+
+    /**
+     * Verify that passing {@code null} as the source object results in a
+     * {@link NullPointerException}. The method casts the input to {@code MonthDay}
+     * without a null check, so a NPE is expected.
+     */
+    @Test(expected = NullPointerException.class)
+    public void testToMap_NullSource() {
+        MonthDayConversions.toMap(null, converter);
+    }
+
+    /**
+     * Verify that passing an object of an incompatible type (e.g., a String)
+     * results in a {@link ClassCastException}. The method performs an unchecked
+     * cast to {@code MonthDay}.
+     */
+    @Test(expected = ClassCastException.class)
+    public void testToMap_IncompatibleSourceType() {
+        MonthDayConversions.toMap("not a MonthDay", converter);
+    }
+
+    /**
+     * Verify that the returned map is mutable and that modifications do not affect
+     * the original MonthDay instance (the method should produce a fresh map each call).
+     */
+    @Test
+    public void testToMap_MapIsIndependent() {
+        MonthDay monthDay = MonthDay.of(12, 31);
+        Map<String, Object> map1 = MonthDayConversions.toMap(monthDay, converter);
+        Map<String, Object> map2 = MonthDayConversions.toMap(monthDay, converter);
+
+        // Modify map1 and ensure map2 remains unchanged
+        map1.put("day", 1);
+        map1.put("extra", "value");
+
+        assertEquals("Original day value in map2 should remain 31", 31, map2.get("day"));
+        assertFalse("Map2 should not contain the extra entry", map2.containsKey("extra"));
+    }
+}

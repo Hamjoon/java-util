@@ -1,0 +1,209 @@
+package com.cedarsoftware.util.convert;
+
+import org.junit.Before;
+import org.junit.Test;
+
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.sql.Timestamp;
+import java.time.*;
+import java.time.format.DateTimeFormatter;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicLong;
+
+import static org.junit.Assert.*;
+
+public class ZonedDateTimeConversionsTest {
+
+    private Converter converterUTC;
+    private Converter converterParis;
+
+    @Before
+    public void setUp() {
+        // ConverterOptions is part of the library; we assume it has a constructor that
+        // accepts a ZoneId and a TimeZone (or defaults to system).  The exact API is not
+        // shown, but the tests only need the zone information, which is retrieved via
+        // converter.getOptions().getZoneId() and getTimeZone().
+        // For the purpose of these tests we rely on the default constructor of
+        // ConverterOptions which uses UTC, and then we replace the zone for the Paris
+        // instance.
+        converterUTC = new Converter(new ConverterOptions()); // defaults to UTC
+        ConverterOptions parisOptions = new ConverterOptions();
+        parisOptions.setZoneId(ZoneId.of("Europe/Paris"));
+        parisOptions.setTimeZone(TimeZone.getTimeZone("Europe/Paris"));
+        converterParis = new Converter(parisOptions);
+    }
+
+    private ZonedDateTime zdtUtc() {
+        return ZonedDateTime.of(
+                2023, 3, 25,       // 2023-03-25
+                10, 15, 30, 123456789, // 10:15:30.123456789
+                ZoneId.of("UTC"));
+    }
+
+    private ZonedDateTime zdtParis() {
+        return ZonedDateTime.of(
+                2023, 3, 25,
+                10, 15, 30, 0,
+                ZoneId.of("Europe/Paris"));
+    }
+
+    @Test
+    public void testToLong_Typical() {
+        long expected = zdtUtc().toInstant().toEpochMilli();
+        assertEquals(expected, ZonedDateTimeConversions.toLong(zdtUtc(), converterUTC));
+    }
+
+    @Test(expected = ClassCastException.class)
+    public void testToLong_NullInput() {
+        ZonedDateTimeConversions.toLong(null, converterUTC);
+    }
+
+    @Test
+    public void testToDouble_Typical() {
+        double expected = ((double) zdtUtc().toInstant().toEpochMilli()) / 1000.0;
+        assertEquals(expected, ZonedDateTimeConversions.toDouble(zdtUtc(), converterUTC), 0.0);
+    }
+
+    @Test
+    public void testToInstant_Typical() {
+        Instant expected = zdtUtc().toInstant();
+        assertEquals(expected, ZonedDateTimeConversions.toInstant(zdtUtc(), converterUTC));
+    }
+
+    @Test
+    public void testToLocalDateTime_ZoneConversion() {
+        // Source is UTC, target converter is Paris (UTC+1 or UTC+2 depending on DST)
+        ZonedDateTime source = zdtUtc();
+        LocalDateTime result = ZonedDateTimeConversions.toLocalDateTime(source, converterParis);
+        ZonedDateTime expected = source.withZoneSameInstant(ZoneId.of("Europe/Paris"));
+        assertEquals(expected.toLocalDateTime(), result);
+    }
+
+    @Test
+    public void testToLocalDate_Typical() {
+        LocalDate expected = zdtParis().withZoneSameInstant(converterParis.getOptions().getZoneId()).toLocalDate();
+        assertEquals(expected, ZonedDateTimeConversions.toLocalDate(zdtParis(), converterParis));
+    }
+
+    @Test
+    public void testToLocalTime_Typical() {
+        LocalTime expected = zdtParis().withZoneSameInstant(converterParis.getOptions().getZoneId()).toLocalTime();
+        assertEquals(expected, ZonedDateTimeConversions.toLocalTime(zdtParis(), converterParis));
+    }
+
+    @Test
+    public void testToOffsetDateTime_Typical() {
+        OffsetDateTime expected = zdtUtc().toOffsetDateTime();
+        assertEquals(expected, ZonedDateTimeConversions.toOffsetDateTime(zdtUtc(), converterUTC));
+    }
+
+    @Test
+    public void testToAtomicLong_Typical() {
+        long epochMilli = zdtUtc().toInstant().toEpochMilli();
+        AtomicLong atomic = ZonedDateTimeConversions.toAtomicLong(zdtUtc(), converterUTC);
+        assertEquals(epochMilli, atomic.get());
+    }
+
+    @Test
+    public void testToTimestamp_Typical() {
+        Timestamp expected = Timestamp.from(zdtUtc().toInstant());
+        assertEquals(expected, ZonedDateTimeConversions.toTimestamp(zdtUtc(), converterUTC));
+    }
+
+    @Test
+    public void testToCalendar_Typical() {
+        Calendar cal = ZonedDateTimeConversions.toCalendar(zdtUtc(), converterUTC);
+        assertEquals(TimeZone.getTimeZone("UTC"), cal.getTimeZone());
+        assertEquals(zdtUtc().toInstant().toEpochMilli(), cal.getTimeInMillis());
+    }
+
+    @Test
+    public void testToSqlDate_Typical() {
+        java.sql.Date expected = new java.sql.Date(zdtUtc().toInstant().toEpochMilli());
+        assertEquals(expected, ZonedDateTimeConversions.toSqlDate(zdtUtc(), converterUTC));
+    }
+
+    @Test
+    public void testToDate_Typical() {
+        Date expected = new Date(zdtUtc().toInstant().toEpochMilli());
+        assertEquals(expected, ZonedDateTimeConversions.toDate(zdtUtc(), converterUTC));
+    }
+
+    @Test
+    public void testToBigInteger_Typical() {
+        Instant instant = zdtUtc().toInstant();
+        BigInteger expected = InstantConversions.toBigInteger(instant, converterUTC);
+        assertEquals(expected, ZonedDateTimeConversions.toBigInteger(zdtUtc(), converterUTC));
+    }
+
+    @Test
+    public void testToBigDecimal_Typical() {
+        Instant instant = zdtUtc().toInstant();
+        BigDecimal expected = InstantConversions.toBigDecimal(instant, converterUTC);
+        assertEquals(expected, ZonedDateTimeConversions.toBigDecimal(zdtUtc(), converterUTC));
+    }
+
+    @Test
+    public void testToString_Typical() {
+        String expected = zdtUtc().format(DateTimeFormatter.ISO_DATE_TIME);
+        assertEquals(expected, ZonedDateTimeConversions.toString(zdtUtc(), converterUTC));
+    }
+
+    @Test
+    public void testToMap_Typical() {
+        Map<String, Object> map = ZonedDateTimeConversions.toMap(zdtUtc(), converterUTC);
+        assertEquals(zdtUtc().toLocalDate().toString(), map.get(MapConversions.DATE));
+        assertEquals(zdtUtc().toLocalTime().toString(), map.get(MapConversions.TIME));
+        assertEquals(zdtUtc().getZone().toString(), map.get(MapConversions.ZONE));
+        assertTrue(map instanceof CompactLinkedMap);
+    }
+
+    @Test(expected = ClassCastException.class)
+    public void testToMap_NullInput() {
+        ZonedDateTimeConversions.toMap(null, converterUTC);
+    }
+
+    // -----------------------------------------------------------------
+    // Edge / error scenarios
+    // -----------------------------------------------------------------
+
+    @Test(expected = ClassCastException.class)
+    public void testToLocalDate_InvalidObject() {
+        ZonedDateTimeConversions.toLocalDate("not a ZonedDateTime", converterUTC);
+    }
+
+    @Test(expected = ClassCastException.class)
+    public void testToLocalTime_InvalidObject() {
+        ZonedDateTimeConversions.toLocalTime(12345, converterUTC);
+    }
+
+    @Test
+    public void testToCalendar_DifferentTimeZone() {
+        // Convert a UTC ZonedDateTime using a Paris converter – the Calendar should
+        // reflect the Paris time zone but retain the same instant milliseconds.
+        Calendar cal = ZonedDateTimeConversions.toCalendar(zdtUtc(), converterParis);
+        assertEquals(TimeZone.getTimeZone("Europe/Paris"), cal.getTimeZone());
+        assertEquals(zdtUtc().toInstant().toEpochMilli(), cal.getTimeInMillis());
+    }
+
+    @Test
+    public void testToString_WithOffset() {
+        ZonedDateTime withOffset = ZonedDateTime.of(
+                2022, 12, 31, 23, 59, 59, 0,
+                ZoneId.ofOffset("UTC", ZoneOffset.ofHours(-5)));
+        String expected = withOffset.format(DateTimeFormatter.ISO_DATE_TIME);
+        assertEquals(expected, ZonedDateTimeConversions.toString(withOffset, converterUTC));
+    }
+
+    @Test
+    public void testToMap_ZoneIdPreserved() {
+        ZonedDateTime zdt = ZonedDateTime.of(
+                2021, 6, 15, 12, 0, 0, 0,
+                ZoneId.of("America/New_York"));
+        Map<String, Object> map = ZonedDateTimeConversions.toMap(zdt, converterUTC);
+        assertEquals("America/New_York", map.get(MapConversions.ZONE));
+    }
+}
